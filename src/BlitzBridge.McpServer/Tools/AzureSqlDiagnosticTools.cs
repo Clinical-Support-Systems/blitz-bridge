@@ -18,31 +18,125 @@ public sealed class AzureSqlDiagnosticTools
 
     [McpServerTool, Description("Run an Azure-safe SQL health check using sp_Blitz.")]
     public Task<object> AzureSqlHealthCheck(
-        AzureSqlHealthCheckRequest request,
+        string? target = null,
+        string? databaseName = null,
+        int? minimumPriority = null,
+        bool? expertMode = null,
+        int? maxRows = null,
+        bool? includeVerboseResults = null,
+        AzureSqlHealthCheckRequest? request = null,
         CancellationToken cancellationToken = default)
-        => _frkProcedureService.RunHealthCheckAsync(request, cancellationToken);
+        => _frkProcedureService.RunHealthCheckAsync(
+            new AzureSqlHealthCheckRequest
+            {
+                Target = !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                DatabaseName = request?.DatabaseName ?? databaseName,
+                MinimumPriority = request?.MinimumPriority ?? minimumPriority,
+                ExpertMode = request?.ExpertMode ?? expertMode ?? false,
+                MaxRows = request?.MaxRows ?? maxRows ?? 25,
+                IncludeVerboseResults = request?.IncludeVerboseResults ?? includeVerboseResults ?? false
+            },
+            cancellationToken);
 
     [McpServerTool, Description("Run sp_BlitzCache for the requested sort order and surface any FRK AI prompt or advice output.")]
     public async Task<object> AzureSqlBlitzCache(
-        AzureSqlBlitzCacheRequest request,
+        string? target = null,
+        string? databaseName = null,
+        string? sortOrder = null,
+        int? top = null,
+        bool? expertMode = null,
+        int? aiMode = null,
+        string? aiPromptConfigTable = null,
+        string? aiPromptName = null,
+        int? maxRows = null,
+        bool? includeVerboseResults = null,
+        AzureSqlBlitzCacheRequest? request = null,
         CancellationToken cancellationToken = default)
-        => await _frkProcedureService.RunBlitzCacheAsync(request, cancellationToken);
+        => await _frkProcedureService.RunBlitzCacheAsync(
+            new AzureSqlBlitzCacheRequest
+            {
+                Target = !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                DatabaseName = request?.DatabaseName ?? databaseName,
+                SortOrder = request?.SortOrder ?? sortOrder ?? "cpu",
+                Top = request?.Top ?? top ?? 10,
+                ExpertMode = request?.ExpertMode ?? expertMode ?? false,
+                AiMode = request?.AiMode ?? aiMode ?? 0,
+                AiPromptConfigTable = request?.AiPromptConfigTable ?? aiPromptConfigTable,
+                AiPromptName = request?.AiPromptName ?? aiPromptName,
+                MaxRows = request?.MaxRows ?? maxRows ?? 50,
+                IncludeVerboseResults = request?.IncludeVerboseResults ?? includeVerboseResults ?? false
+            },
+            cancellationToken);
 
     [McpServerTool, Description("Run single-table sp_BlitzIndex analysis and surface any FRK AI prompt or advice output.")]
     public async Task<object> AzureSqlBlitzIndex(
-        AzureSqlBlitzIndexRequest request,
+        string? target = null,
+        string? databaseName = null,
+        string? schemaName = null,
+        string? tableName = null,
+        int? mode = null,
+        int? thresholdMb = null,
+        bool? expertMode = null,
+        int? aiMode = null,
+        string? aiPromptConfigTable = null,
+        string? aiPromptName = null,
+        int? maxRows = null,
+        bool? includeVerboseResults = null,
+        AzureSqlBlitzIndexRequest? request = null,
         CancellationToken cancellationToken = default)
-        => await _frkProcedureService.RunBlitzIndexAsync(request, cancellationToken);
+        => await _frkProcedureService.RunBlitzIndexAsync(
+            new AzureSqlBlitzIndexRequest
+            {
+                Target = !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                DatabaseName = request?.DatabaseName ?? databaseName ?? string.Empty,
+                SchemaName = request?.SchemaName ?? schemaName ?? "dbo",
+                TableName = request?.TableName ?? tableName ?? string.Empty,
+                Mode = request?.Mode ?? mode ?? 0,
+                ThresholdMb = request?.ThresholdMb ?? thresholdMb ?? 250,
+                ExpertMode = request?.ExpertMode ?? expertMode ?? false,
+                AiMode = request?.AiMode ?? aiMode ?? 0,
+                AiPromptConfigTable = request?.AiPromptConfigTable ?? aiPromptConfigTable,
+                AiPromptName = request?.AiPromptName ?? aiPromptName,
+                MaxRows = request?.MaxRows ?? maxRows ?? 100,
+                IncludeVerboseResults = request?.IncludeVerboseResults ?? includeVerboseResults ?? false
+            },
+            cancellationToken);
 
     [McpServerTool, Description("Capture a current incident snapshot using sp_BlitzFirst.")]
     public Task<object> AzureSqlCurrentIncident(
-        AzureSqlCurrentIncidentRequest request,
+        string? target = null,
+        string? databaseName = null,
+        bool? expertMode = null,
+        int? maxRows = null,
+        bool? includeVerboseResults = null,
+        AzureSqlCurrentIncidentRequest? request = null,
         CancellationToken cancellationToken = default)
-        => _frkProcedureService.RunCurrentIncidentAsync(request, cancellationToken);
+        => _frkProcedureService.RunCurrentIncidentAsync(
+            new AzureSqlCurrentIncidentRequest
+            {
+                Target = !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                DatabaseName = request?.DatabaseName ?? databaseName,
+                ExpertMode = request?.ExpertMode ?? expertMode ?? false,
+                MaxRows = request?.MaxRows ?? maxRows ?? 25,
+                IncludeVerboseResults = request?.IncludeVerboseResults ?? includeVerboseResults ?? false
+            },
+            cancellationToken);
 
     [McpServerTool, Description("Return installed FRK procedures, AI readiness, and target-level safety metadata for a configured profile.")]
     public async Task<object> AzureSqlTargetCapabilities(
-        AzureSqlTargetCapabilitiesRequest request,
+        string? target = null,
+        AzureSqlTargetCapabilitiesRequest? request = null,
         CancellationToken cancellationToken = default)
-        => await _frkProcedureService.RunTargetCapabilitiesAsync(request, cancellationToken);
+    {
+        var effectiveTarget = !string.IsNullOrWhiteSpace(request?.Target)
+            ? request.Target
+            : target ?? string.Empty;
+
+        return await _frkProcedureService.RunTargetCapabilitiesAsync(
+            new AzureSqlTargetCapabilitiesRequest
+            {
+                Target = effectiveTarget
+            },
+            cancellationToken);
+    }
 }
