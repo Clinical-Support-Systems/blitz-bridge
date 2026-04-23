@@ -34,3 +34,10 @@ Tester initialized with day-1 project context.
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/mcmanus-auth-integration-tests.md`
 - **Next:** Implement auth + CORS test matrix expansions as Fenster's middleware evolves; validate process-level endpoint behavior remains consistent.
 
+### Batch 0: WebApplicationFactory Auth Matrix (2026-04-24)
+
+- Reworked HTTP auth integration coverage to use a `WebApplicationFactory<Program>` harness instead of external process bootstrapping, reducing startup flake and keeping auth assertions at app-pipeline boundary.
+- Confirmed required matrix behavior on `/mcp`: BearerToken mode returns 401 for missing header and wrong token, returns 200 for correct token, and None mode returns 200 regardless of Authorization header value.
+- Kept stdio transport bypass coverage intact (`StdioTransport_BypassesHttpAuthMiddleware_AndStillInitializes`) to ensure HTTP auth configuration does not affect stdio initialize flow.
+- Validation: built tests and executed TUnit host directly; full suite passed (22/22, failed 0, skipped 0).
+

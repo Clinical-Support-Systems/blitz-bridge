@@ -1,4 +1,5 @@
 using BlitzBridge.McpServer.Configuration;
+using BlitzBridge.McpServer.Middleware;
 using BlitzBridge.McpServer.Services;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.AspNetCore;
@@ -67,12 +68,35 @@ static async Task<int> RunHttpAsync(StartupConfiguration startup, string[] args)
         })
         .WithToolsFromAssembly();
 
+    var corsOptions = builder.Configuration
+        .GetSection(BlitzBridge.McpServer.Configuration.CorsOptions.SectionName)
+        .Get<BlitzBridge.McpServer.Configuration.CorsOptions>() ?? new BlitzBridge.McpServer.Configuration.CorsOptions();
+
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
         {
-            policy.AllowAnyOrigin()
-                .AllowAnyHeader()
+            // CORS defaults to "deny by omission": no configured origins means no Access-Control-Allow-Origin header.
+            // AllowAnyOrigin is an explicit opt-in intended for local development only.
+            if (corsOptions.AllowAnyOrigin)
+            {
+                policy.AllowAnyOrigin();
+            }
+            else
+            {
+                var allowedOrigins = corsOptions.AllowedOrigins
+                    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+                    .Select(origin => origin.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                if (allowedOrigins.Length > 0)
+                {
+                    policy.WithOrigins(allowedOrigins);
+                }
+            }
+
+            policy.AllowAnyHeader()
                 .AllowAnyMethod();
         });
     });
@@ -91,6 +115,7 @@ static async Task<int> RunHttpAsync(StartupConfiguration startup, string[] args)
     }
 
     app.UseCors();
+    app.UseMiddleware<McpHttpAuthMiddleware>();
 
     app.MapDefaultEndpoints();
     app.MapGet("/health", () => Results.Ok("healthy"));
@@ -104,8 +129,15 @@ static void ConfigureSharedServices(IServiceCollection services, IConfiguration 
 {
     services.Configure<SqlTargetOptions>(
         configuration.GetSection(SqlTargetOptions.SectionName));
+    services.Configure<BlitzBridgeAuthOptions>(
+        configuration.GetSection(BlitzBridgeAuthOptions.SectionName));
+    services.Configure<BlitzBridge.McpServer.Configuration.CorsOptions>(
+        configuration.GetSection(BlitzBridge.McpServer.Configuration.CorsOptions.SectionName));
 
     services.AddSingleton<ISqlExecutionService, SqlExecutionService>();
     services.AddSingleton<FrkProcedureService>();
     services.AddSingleton<FrkResultMapper>();
 }
+
+public partial class Program;
+

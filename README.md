@@ -101,6 +101,7 @@ Blitz Bridge reads target profiles from a JSON config file:
 - `ConnectionString` — Azure SQL connection string (stored server-side, never exposed)
 - `AllowedDatabases` — restricts which databases this profile may analyze (optional; if omitted, no restriction)
 - `AllowedProcedures` — allowlist of FRK procedures available to agents
+- `Enabled` — gates this profile's validation at startup; profiles with `Enabled=false` are skipped and not exposed to MCP tools
 - `CommandTimeoutSeconds` — query execution timeout (default: 60)
 - `AiMode` — AI participation level: `0` (off), `2` (FRK prompts only), `1` (FRK direct AI calls, requires setup)
 
@@ -152,6 +153,167 @@ Reference: [Using AI with the First Responder Kit](https://github.com/BrentOzarU
 - `sp_BlitzCache @AI = 2` is especially useful for agents because the generated prompt is already tailored to the query, plan, and performance data.
 - `sp_BlitzIndex` is modeled here as a focused single-table tool because that is the most useful path for agent-guided tuning.
 - The HTTP example file in `src/BlitzBridge.McpServer/BlitzBridge.McpServer.http` includes a capability probe request you can start from.
+
+## Hosting with auth
+
+When deploying Blitz Bridge to a remote or shared environment, you can layer authentication on top of the MCP HTTP transport. This section explains the `BlitzBridge:Auth` configuration shape, token precedence, and integration patterns for Claude Desktop, Claude Code, and other MCP clients.
+
+### BlitzBridge:Auth configuration
+
+Add an `Auth` section to your `appsettings.json` (HTTP mode only; stdio mode ignores it):
+
+```json
+{
+  "BlitzBridge": {
+    "Auth": {
+      "Mode": "BearerToken",
+      "Tokens": [ "your-secret-token-here" ]
+    }
+  }
+}
+```
+
+**Configuration shape:**
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `Auth.Mode` | string | `"None"` | `"None"` disables HTTP auth; `"BearerToken"` requires an `Authorization: Bearer <token>` header on `/mcp` HTTP requests. |
+| `Auth.Tokens` | string[] | `[]` | Bearer-token allowlist. At least one token is required when mode is `BearerToken`. |
+
+**Mode semantics:**
+
+- **None**: HTTP `/mcp` requests are not token-gated.
+- **BearerToken**: `/mcp` requires a bearer token and returns `401 Unauthorized` when missing or invalid.
+
+### Token source and precedence
+
+Tokens can come from two sources; the precedence order is:
+
+1. **Environment variable** (highest priority): `BLITZBRIDGE_AUTH_TOKENS` (semicolon-separated)
+2. **Config file**: `BlitzBridge:Auth:Tokens` in `appsettings.json`
+
+If `BLITZBRIDGE_AUTH_TOKENS` is set with at least one non-empty token, it overrides config tokens. This allows you to:
+
+- Keep sensitive tokens out of config files
+- Override tokens at deployment time without recompiling
+- Use orchestration platforms (Aspire, Docker, Kubernetes) to inject secrets
+
+**Example: Aspire parameter binding**
+
+In your `AppHost.cs`, define a secret parameter:
+
+```csharp
+var authTokens = builder.AddParameter("auth-tokens", secret: true);
+
+var mcp = builder
+    .AddProject<Projects.BlitzBridge_McpServer>("blitz-bridge")
+    .WithEnvironment("BLITZBRIDGE_AUTH_TOKENS", authTokens);
+```
+
+Then run:
+
+```bash
+dotnet run -- --parameters auth-tokens="token-a;token-b"
+```
+
+### Sample hosted MCP client configuration
+
+#### Claude Desktop with Authorization header
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "blitz-bridge": {
+      "command": "curl",
+      "args": [
+        "-X", "POST",
+        "-H", "Authorization: Bearer YOUR_TOKEN_HERE",
+        "-H", "Content-Type: application/json",
+        "-d", "@-",
+        "http://your-host:5000/mcp"
+      ]
+    }
+  }
+}
+```
+
+Alternatively, if your Blitz Bridge is exposed on a system with environment variables, you can use:
+
+```json
+{
+  "mcpServers": {
+    "blitz-bridge": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "curl -X POST -H \"Authorization: Bearer $BLITZ_TOKEN\" -H \"Content-Type: application/json\" -d @- http://your-host:5000/mcp"
+      ]
+    }
+  }
+}
+```
+
+Set `BLITZ_TOKEN` in your shell environment:
+
+```bash
+export BLITZ_TOKEN="your-secret-token-here"
+```
+
+#### Claude Code and Cursor
+
+Both Claude Code and Cursor support similar patterns. Use the environment variable approach if your MCP client supports shell execution, or hard-code the token if the connection is local and trusted.
+
+Example for Claude Code workspace settings:
+
+```json
+{
+  "mcpServers": {
+    "blitz-bridge": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "curl -X POST -H \"Authorization: Bearer $BLITZ_TOKEN\" -H \"Content-Type: application/json\" -d @- http://your-host:5000/mcp"
+      ]
+    }
+  }
+}
+```
+
+### Stdio mode and local auth
+
+**Stdio mode (used with `blitz-bridge --transport stdio`) does not support HTTP auth.** This is by design:
+
+- Stdio transport communicates via JSON-RPC over standard input/output, not HTTP.
+- All config is loaded from the local filesystem or environment at startup.
+- If you run `blitz-bridge --transport stdio --config profiles.json`, there is no network listener; auth is not required.
+
+This means local MCP clients (Claude Desktop on your workstation) can access Blitz Bridge without credentials when using stdio mode.
+
+### CORS and public endpoints
+
+HTTP CORS is now configuration-driven under `BlitzBridge:Cors`:
+
+```json
+{
+  "BlitzBridge": {
+    "Cors": {
+      "AllowAnyOrigin": false,
+      "AllowedOrigins": [
+        "https://claude.ai",
+        "https://your-internal-app.example.com"
+      ]
+    }
+  }
+}
+```
+
+**Behavior:**
+
+- Default is restrictive (`AllowAnyOrigin=false`, `AllowedOrigins=[]`), so no CORS origin is granted unless you opt in.
+- Set `AllowedOrigins` for explicit production allowlists.
+- `AllowAnyOrigin=true` is supported as an explicit opt-in for local development only.
 
 ## Hosted deployment
 

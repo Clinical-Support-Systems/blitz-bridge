@@ -69,3 +69,23 @@ Docs agent initialized with day-1 project context.
 - **Team alignment:** Keaton can review architecture; Fenster has implementation contract; McManus knows test expectations
 - **Downstream:** Architecture review revealed consolidation blocker (dual auth classes) + documentation alignment needed (README env var naming)
 
+### Session 5: Auth Documentation & Code Drift Cleanup (2026-04-24)
+
+**Assignment:** Fix docs/code drift from Decision 011 blockers:
+1. ✅ **`Auth.Enabled` references:** None found. README correctly documents `Auth.Mode` and `Auth.Tokens` only.
+2. ✅ **Environment variable naming:** `BLITZBRIDGE_AUTH_TOKENS` in README matches code constant exactly.
+3. ✅ **Token source precedence:** README accurately documents `BLITZBRIDGE_AUTH_TOKENS` env var (priority 1) > config file (priority 2).
+4. ✅ **Hosted auth section:** Accurate, concise, includes Aspire parameter binding + client config patterns (Claude Desktop/Code/Cursor).
+5. ⚠️ **Profile-level `Enabled` field:** Minor clarity issue — README config example shows `"Enabled": true` for SQL targets but doesn't distinguish it from auth config.
+
+**Resolution:**
+- Added clarifying comment in README "Key fields" section: "`Enabled` — gates this profile's validation at startup; profiles with `Enabled=false` are skipped and not exposed to MCP tools"
+- No breaking changes; `Auth.Mode` + `Auth.Tokens` are canonical shapes; no `Auth.Enabled` exists in code.
+
+**Blockers Cleared:**
+- Verbal: README env var naming ✅ correct (no changes needed)
+- Verbal: `Auth.Enabled` references ✅ removed (none existed)
+- Profile-level `Enabled` clarified in docs ✅
+
+**Artifact:** `.squad/decisions/inbox/verbal-auth-docs-cleanup.md` created with detailed audit + findings.
+

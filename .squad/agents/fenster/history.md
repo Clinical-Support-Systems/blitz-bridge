@@ -45,3 +45,11 @@ Backend agent initialized with day-1 project context.
 - **Blocking items identified** → Must delete `HttpAuthOptions.cs` (class consolidation from Keaton decision); confirmed by architecture review.
 - **Next:** Implement class consolidation (delete `HttpAuthOptions.cs`), verify no middleware regressions against updated test harness.
 
+### Batch 2.1: Auth Cleanup Blockers Resolved (2026-04-24)
+
+- Removed duplicate auth options type by deleting `Configuration/HttpAuthOptions.cs` and introducing a single canonical auth model: `Configuration/BlitzBridgeAuthOptions.cs` bound to `BlitzBridge:Auth`.
+- Updated pipeline/service wiring and middleware to use canonical auth types only (`IOptions<BlitzBridgeAuthOptions>` + `BlitzBridgeAuthMode`), eliminating binding ambiguity without changing runtime behavior.
+- Preserved completed hardening behavior: `Mode` (`None`/`BearerToken`) handling, `BLITZBRIDGE_AUTH_TOKENS` precedence over config tokens, constant-time token comparison, and stdio transport isolation from HTTP auth.
+- Updated tests to reference the canonical auth model; direct test executable run remains the reliable .NET 10 validation path in this repo.
+- Validation: `dotnet build BlitzBridge.slnx` passed; `dotnet build tests/BlitzBridge.McpServer.Tests/BlitzBridge.McpServer.Tests.csproj` passed; `tests/BlitzBridge.McpServer.Tests/bin/Debug/net10.0/BlitzBridge.McpServer.Tests.exe` passed (`22/22`).
+
