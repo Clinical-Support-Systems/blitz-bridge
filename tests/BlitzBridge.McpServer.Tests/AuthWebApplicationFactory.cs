@@ -5,7 +5,10 @@ using Microsoft.Extensions.Configuration;
 
 namespace BlitzBridge.McpServer.Tests;
 
-internal sealed class AuthWebApplicationFactory(string mode, string? tokens = null) : WebApplicationFactory<Program>
+internal sealed class AuthWebApplicationFactory(
+    string mode,
+    string? tokens = null,
+    IReadOnlyDictionary<string, string?>? extraConfig = null) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -21,6 +24,14 @@ internal sealed class AuthWebApplicationFactory(string mode, string? tokens = nu
             if (!string.IsNullOrWhiteSpace(tokens))
             {
                 config["BLITZBRIDGE_AUTH_TOKENS"] = tokens;
+            }
+
+            if (extraConfig is not null)
+            {
+                foreach (var (key, value) in extraConfig)
+                {
+                    config[key] = value;
+                }
             }
 
             configBuilder.AddInMemoryCollection(config);

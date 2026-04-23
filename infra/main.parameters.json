@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "resourceNamePrefix": {
+      "value": "${AZURE_ENV_NAME}"
+    },
+    "location": {
+      "value": "${AZURE_LOCATION}"
+    },
+    "containerImage": {
+      "value": "${BLITZBRIDGE_CONTAINER_IMAGE}"
+    },
+    "containerRegistryServer": {
+      "value": "${BLITZBRIDGE_CONTAINER_REGISTRY_SERVER}"
+    },
+    "containerRegistryUseManagedIdentity": {
+      "value": "${BLITZBRIDGE_CONTAINER_REGISTRY_USE_MANAGED_IDENTITY}"
+    },
+    "containerRegistryAcrName": {
+      "value": "${BLITZBRIDGE_CONTAINER_REGISTRY_ACR_NAME}"
+    },
+    "containerRegistryUsername": {
+      "value": "${BLITZBRIDGE_CONTAINER_REGISTRY_USERNAME}"
+    },
+    "containerRegistryPassword": {
+      "value": "${BLITZBRIDGE_CONTAINER_REGISTRY_PASSWORD}"
+    },
+    "vnetIntegrationEnabled": {
+      "value": "${BLITZBRIDGE_VNET_INTEGRATION_ENABLED}"
+    },
+    "infrastructureSubnetResourceId": {
+      "value": "${BLITZBRIDGE_INFRASTRUCTURE_SUBNET_RESOURCE_ID}"
+    },
+    "sqlServerFqdn": {
+      "value": "${BLITZBRIDGE_SQL_SERVER_FQDN}"
+    },
+    "sqlDatabaseName": {
+      "value": "${BLITZBRIDGE_SQL_DATABASE_NAME}"
+    },
+    "sqlServerPublic": {
+      "value": "${BLITZBRIDGE_SQL_SERVER_PUBLIC}"
+    },
+    "bearerToken": {
+      "value": "${BLITZBRIDGE_BEARER_TOKEN}"
+    },
+    "sqlRoleName": {
+      "value": "${BLITZBRIDGE_SQL_ROLE_NAME}"
+    },
+    "targetPort": {
+      "value": "${BLITZBRIDGE_PORT}"
+    }
+  }
+}

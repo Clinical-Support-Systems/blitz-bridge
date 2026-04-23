@@ -16,8 +16,8 @@ WORKDIR /app
 
 COPY --from=build /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:5000
+ENV PORT=5000
 EXPOSE 5000
 
 USER $APP_UID
-ENTRYPOINT ["dotnet", "BlitzBridge.McpServer.dll", "--transport", "http"]
+ENTRYPOINT ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-5000} exec dotnet BlitzBridge.McpServer.dll --transport http"]

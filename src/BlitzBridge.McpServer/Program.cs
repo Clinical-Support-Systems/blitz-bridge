@@ -1,6 +1,8 @@
 using BlitzBridge.McpServer.Configuration;
 using BlitzBridge.McpServer.Middleware;
 using BlitzBridge.McpServer.Services;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.AspNetCore;
 
@@ -117,8 +119,19 @@ static async Task<int> RunHttpAsync(StartupConfiguration startup, string[] args)
     app.UseCors();
     app.UseMiddleware<McpHttpAuthMiddleware>();
 
-    app.MapDefaultEndpoints();
-    app.MapGet("/health", () => Results.Ok("healthy"));
+    app.MapHealthChecks("/health", new HealthCheckOptions
+    {
+        ResultStatusCodes =
+        {
+            [HealthStatus.Healthy] = StatusCodes.Status200OK,
+            [HealthStatus.Degraded] = StatusCodes.Status200OK,
+            [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
+        }
+    });
+    app.MapHealthChecks("/alive", new HealthCheckOptions
+    {
+        Predicate = registration => registration.Tags.Contains("live")
+    });
     app.MapMcp("/mcp");
 
     await app.RunAsync();
@@ -137,6 +150,8 @@ static void ConfigureSharedServices(IServiceCollection services, IConfiguration 
     services.AddSingleton<ISqlExecutionService, SqlExecutionService>();
     services.AddSingleton<FrkProcedureService>();
     services.AddSingleton<FrkResultMapper>();
+    services.AddHealthChecks()
+        .AddCheck<SqlProfilesHealthCheck>("sql-target-connectivity", failureStatus: HealthStatus.Degraded);
 }
 
 public partial class Program;

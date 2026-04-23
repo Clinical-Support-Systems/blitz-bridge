@@ -1,0 +1,21 @@
+name: blitz-bridge
+metadata:
+  template: blitz-bridge@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+services:
+  blitz-bridge:
+    language: docker
+    project: .
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+hooks:
+  preprovision:
+    - shell: pwsh
+      run: ./scripts/azd-preprovision.ps1
+  postdeploy:
+    - shell: pwsh
+      run: ./scripts/azd-postdeploy.ps1
