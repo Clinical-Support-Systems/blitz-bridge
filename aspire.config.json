@@ -1,0 +1,5 @@
+{
+  "appHost": {
+    "path": "src/BlitzBridge.AppHost/BlitzBridge.AppHost.csproj"
+  }
+}

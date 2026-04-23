@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="icon_128.png" />
+    <File Path="icon_large.png" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="src/BlitzBridge.AppHost/BlitzBridge.AppHost.csproj" />
+  <Project Path="src/BlitzBridge.McpServer/BlitzBridge.McpServer.csproj" Id="1ba5ffad-b8be-4a5c-a9f7-151c9252fc70" />
+  <Project Path="src/BlitzBridge.ServiceDefaults/BlitzBridge.ServiceDefaults.csproj" />
+</Solution>
