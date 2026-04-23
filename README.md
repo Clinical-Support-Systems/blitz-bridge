@@ -1,4 +1,4 @@
-![Blitz Bridge icon](icon_large.png)
+![Blitz Bridge icon](icon_medium.png)
 
 # Blitz Bridge
 
