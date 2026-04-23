@@ -31,3 +31,17 @@ Backend agent initialized with day-1 project context.
 - MCP server project is now packable as a .NET global tool (`blitz-bridge`) with package metadata and local nupkg install validation.
 - Validation covered test project build + test executable pass, `dotnet pack` success, local tool install/update from package source, missing-config non-zero exit with stderr error, and initialize handshake response verification using `samples/profiles.json`.
 - **Decision merged** → `fenster-stdio-tooling.md` consolidated to `decisions.md` as Decision 008 (Active)
+
+### Batch 2: HTTP Auth + CORS Hardening (2026-04-24)
+
+- Reworked HTTP auth contract to `BlitzBridge:Auth` with `Mode` (`None`/`BearerToken`) and `Tokens` allowlist, replacing single-token assumptions and making server behavior explicit.
+- Added `/mcp`-scoped middleware auth enforcement with constant-time token comparison, env/config token precedence handling (`BLITZBRIDGE_AUTH_TOKENS` first), and sanitized failed-auth logging (source IP + truncated token hash only).
+- Tightened CORS to config-driven allowlist (`BlitzBridge:Cors:AllowedOrigins`) with `AllowAnyOrigin` as explicit opt-in; default behavior no longer emits wildcard-origin CORS headers.
+- Confirmed stdio path remains unaffected by HTTP auth middleware by preserving transport split and running stdio smoke validation with auth env settings present.
+- Validation: `dotnet build BlitzBridge.slnx` passes; test project build and direct TUnit executable run pass (`22/22`).
+- **Decision created** → `fenster-auth-cors.md` written to `.squad/decisions/inbox/` (pending merge)
+- **Decision merged** → `fenster-auth-cors.md` consolidated to `decisions.md` as Decision 013 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/fenster-auth-cors-hardening.md`
+- **Blocking items identified** → Must delete `HttpAuthOptions.cs` (class consolidation from Keaton decision); confirmed by architecture review.
+- **Next:** Implement class consolidation (delete `HttpAuthOptions.cs`), verify no middleware regressions against updated test harness.
+

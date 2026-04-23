@@ -23,3 +23,14 @@ Tester initialized with day-1 project context.
 - Validation remains dependent on direct TUnit executable runs under .NET 10/MTP; `dotnet test` is still unsupported in this SDK path.
 - Key harness lesson: current stdio transport expects newline-delimited JSON-RPC input (not `Content-Length` framed LSP payloads), so smoke tests must send a single-line JSON request.
 - **Decision merged** → `mcmanus-stdio-tests.md` consolidated to `decisions.md` as Decision 007 (Active)
+### Batch 0: HTTP Auth Mode Integration Coverage (2026-04-24)
+
+- Added process-level HTTP integration tests that launch `BlitzBridge.McpServer.exe` and verify `/mcp` auth outcomes by mode: BearerToken returns 401 for missing/wrong headers, returns 200 for correct bearer token, and None mode returns 200 regardless of header.
+- Added stdio bypass coverage proving `--transport stdio` initialize handshake still succeeds even when HTTP auth env vars are configured, confirming middleware scope is HTTP `/mcp` only.
+- Harness nuance: MCP HTTP endpoint requires `Accept: application/json, text/event-stream`; missing this can produce 406 NotAcceptable and false negatives in auth assertions.
+- Validation: rebuilt `BlitzBridge.McpServer.Tests` and executed TUnit binary directly; full suite passed (22/22).
+- **Decision created** → `mcmanus-auth-tests.md` written to `.squad/decisions/inbox/` (pending merge)
+- **Decision merged** → `mcmanus-auth-tests.md` consolidated to `decisions.md` as Decision 012 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/mcmanus-auth-integration-tests.md`
+- **Next:** Implement auth + CORS test matrix expansions as Fenster's middleware evolves; validate process-level endpoint behavior remains consistent.
+

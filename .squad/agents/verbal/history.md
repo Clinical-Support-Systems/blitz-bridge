@@ -43,3 +43,29 @@ Docs agent initialized with day-1 project context.
 5. **Local development without Aspire**: Added a quick-start subsection for azd-less workflows (`blitz-bridge --transport stdio --config config.json`), which covers the common case where developers just want to test diagnostics locally without infrastructure complexity.
 
 **Artifact:** Updated README.md with new Install, Configuration, and Hosted deployment sections; **decision merged** → `verbal-stdio-docs.md` consolidated to `decisions.md` as Decision 009 (Active).
+
+### Session 4: Hosting with Auth Documentation (2026-04-24)
+
+1. **Auth is HTTP-only, optional by default**: Bearer token auth is a deployment concern, not a core MCP feature. Documenting it separately from stdlib config prevents auth complexity from overwhelming users who don't need it.
+
+2. **Token precedence matters for CI/CD**: Environment variables override config files—this is the standard pattern for secrets rotation in orchestrated deployments. Aspire parameters + `BLITZ_AUTH_BEARER_TOKEN` env binding gives teams the flexibility to inject tokens without recompiling.
+
+3. **Stdio mode remains auth-free**: This is the key distinction: stdio runs locally without a network listener; auth isn't applicable. Documenting this upfront prevents confusion when developers use `--transport stdio` and wonder why auth config is ignored.
+
+4. **CORS allowlisting is production-critical**: The current `AllowAnyOrigin` is fine for dev/internal networks but must be explicitly restricted in production. Showing both a dev-permissive and prod-restrictive pattern gives teams a clear upgrade path without sacrificing security.
+
+5. **Client-side auth is handled outside the server**: MCP clients (Claude Desktop, Claude Code, Cursor) handle Authorization headers in their config; the server only validates Bearer tokens. This separation keeps concerns clean and allows diverse client integration strategies (curl, shell commands, environment variables).
+
+6. **Documentation beats API contracts**: Because auth isn't yet implemented in code, documenting the intended config shape, token precedence, and client patterns first ensures that when engineers build it, they match user expectations. This is especially important for configuration—once deployed, users will expect this behavior.
+
+**Artifact:** New "Hosting with auth" section added to README.md covering: `BlitzBridge:Auth` config shape and Bearer mode semantics; `BLITZ_AUTH_BEARER_TOKEN` env var + precedence; sample client configs for Claude Desktop/Code/Cursor with Authorization headers; stdio mode auth-free guarantee; CORS allowlist patterns for dev vs. production.
+
+**Decision Created:** `.squad/decisions/inbox/verbal-hosting-auth-docs.md` (pending merge).
+
+### Session 4 Completion: Hosting with Auth Documentation Merged (2026-04-24)
+
+- **Decision Merged:** `verbal-hosting-auth-docs.md` consolidated to `decisions.md` as Decision 010 (Active)
+- **Orchestration Logged:** Entry recorded in `.squad/orchestration-log/verbal-hosting-auth-docs.md`
+- **Team alignment:** Keaton can review architecture; Fenster has implementation contract; McManus knows test expectations
+- **Downstream:** Architecture review revealed consolidation blocker (dual auth classes) + documentation alignment needed (README env var naming)
+

@@ -41,3 +41,16 @@ Team lead agent initialized with day-1 project context.
 - **Config source divergence** → HTTP uses standard ASP.NET config chain; stdio uses `--config <path>` or OS-default `config.json` location
 - **Decision merged** → `keaton-stdio-transport-guardrails.md` consolidated to `decisions.md` as Decision 005 (Active)
 - **Next:** Fenster begins implementation; McManus prepares test harness for stdio path; all H-* checks are merge-blocking
+
+### Session 5: Auth Mode Architecture Review (2026-04-24)
+
+- **Dual options class conflict found** → `HttpAuthOptions.cs` and `BlitzBridgeAuthOptions` both bind to `BlitzBridge:Auth`; neither is wired. Must consolidate before auth implementation begins.
+- **Extension-friendly pattern chosen** → String-based `Mode` property with startup validation, not an internal enum. Compose with ASP.NET Core `AddAuthentication()` pipeline, not custom middleware.
+- **Entra ID / Easy Auth composability confirmed** → Adding a provider = new switch case + NuGet package + mode-specific config properties. No refactoring of tools, services, or stdio path required.
+- **README–code divergence flagged** → `Auth.Enabled` doesn't exist in code; env var name mismatch (`BLITZ_AUTH_BEARER_TOKEN` vs `BLITZBRIDGE_AUTH_TOKENS`). Verbal must align.
+- **Profile authorization seam identified for v2** → `SqlExecutionService.GetTargetContext()` is the natural point to add identity-based profile filtering when client identity becomes available.
+- **Seven decisions produced** → D1–D7 in `keaton-auth-mode-architecture.md`; two marked as blockers for Fenster and Verbal.
+- **Decision merged** → `keaton-auth-mode-architecture.md` consolidated to `decisions.md` as Decision 011 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/keaton-auth-architecture-review.md`
+- **Next:** Fenster deletes `HttpAuthOptions.cs` and implements auth via `ConfigureAuth` method. Verbal updates README to remove `Auth.Enabled` and fix env var naming. McManus implements integration test suite.
+
