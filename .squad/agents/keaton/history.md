@@ -28,3 +28,16 @@ Team lead agent initialized with day-1 project context.
 - **Critical path:** D-3 (FRK test fixture) gates all integration tests; L-1 (AiMode config) unblocks half the dependency chain
 - **Batch model:** 3 batches, reviewer gates at each boundary, Batch 1 fully parallelizable
 - **Next:** Team reads work items, begins Batch 1 execution across all roles simultaneously
+
+### Session 4: Stdio Transport Architecture Guardrails (2026-04-24)
+
+- **Dual-path architecture approved** → `--transport stdio|http` (default `http`) branches early in `Program.cs`; HTTP path must remain byte-for-byte identical in behavior
+- **18 explicit no-regression checks defined** → 7 HTTP (H-1–H-7), 8 stdio (S-1–S-8), 3 global tool (G-1–G-3); Fenster implements, McManus tests
+- **Key risk: stdout log pollution** → In stdio mode, all logging must go to stderr; stdout is exclusively MCP JSON-RPC. This is the highest-likelihood defect.
+- **Shared service registration pattern** → Recommend extracting `ConfigureSharedServices(IServiceCollection, IConfiguration)` to avoid duplication between HTTP and stdio builders
+- **AppHost frozen** → Zero changes allowed to `BlitzBridge.AppHost/` for this work item; Aspire orchestrator uses default `http` transport
+- **Package additions** → Need `ModelContextProtocol` (base) alongside existing `ModelContextProtocol.AspNetCore`; both at `1.2.0`
+- **Global tool packaging** → `PackAsTool=true`, `ToolCommandName=blitz-bridge`; must verify no Aspire SDK transitive dependency in tool scenario
+- **Config source divergence** → HTTP uses standard ASP.NET config chain; stdio uses `--config <path>` or OS-default `config.json` location
+- **Decision merged** → `keaton-stdio-transport-guardrails.md` consolidated to `decisions.md` as Decision 005 (Active)
+- **Next:** Fenster begins implementation; McManus prepares test harness for stdio path; all H-* checks are merge-blocking

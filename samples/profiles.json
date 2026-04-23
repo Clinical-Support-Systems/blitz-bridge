@@ -1,0 +1,14 @@
+{
+  "SqlTargets": {
+    "Profiles": {
+      "primary-sql-target": {
+        "ConnectionString": "Server=tcp:example.database.windows.net;Database=DBAtools;Authentication=Active Directory Default;Encrypt=True;ApplicationIntent=ReadOnly;",
+        "AllowedDatabases": [ "AppDb" ],
+        "AllowedProcedures": [ "sp_Blitz", "sp_BlitzCache", "sp_BlitzFirst", "sp_BlitzIndex", "sp_BlitzLock", "sp_BlitzWho" ],
+        "Enabled": true,
+        "CommandTimeoutSeconds": 60,
+        "AiMode": 2
+      }
+    }
+  }
+}

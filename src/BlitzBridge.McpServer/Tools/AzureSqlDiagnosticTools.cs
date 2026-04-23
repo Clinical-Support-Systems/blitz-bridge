@@ -60,7 +60,10 @@ public sealed class AzureSqlDiagnosticTools
                 SortOrder = request?.SortOrder ?? sortOrder ?? "cpu",
                 Top = request?.Top ?? top ?? 10,
                 ExpertMode = request?.ExpertMode ?? expertMode ?? false,
-                AiMode = request?.AiMode ?? aiMode ?? 0,
+                AiMode = ResolveAiMode(
+                    !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                    request?.AiMode,
+                    aiMode),
                 AiPromptConfigTable = request?.AiPromptConfigTable ?? aiPromptConfigTable,
                 AiPromptName = request?.AiPromptName ?? aiPromptName,
                 MaxRows = request?.MaxRows ?? maxRows ?? 50,
@@ -94,7 +97,10 @@ public sealed class AzureSqlDiagnosticTools
                 Mode = request?.Mode ?? mode ?? 0,
                 ThresholdMb = request?.ThresholdMb ?? thresholdMb ?? 250,
                 ExpertMode = request?.ExpertMode ?? expertMode ?? false,
-                AiMode = request?.AiMode ?? aiMode ?? 0,
+                AiMode = ResolveAiMode(
+                    !string.IsNullOrWhiteSpace(request?.Target) ? request.Target : target ?? string.Empty,
+                    request?.AiMode,
+                    aiMode),
                 AiPromptConfigTable = request?.AiPromptConfigTable ?? aiPromptConfigTable,
                 AiPromptName = request?.AiPromptName ?? aiPromptName,
                 MaxRows = request?.MaxRows ?? maxRows ?? 100,
@@ -138,5 +144,20 @@ public sealed class AzureSqlDiagnosticTools
                 Target = effectiveTarget
             },
             cancellationToken);
+    }
+
+    private int ResolveAiMode(string target, int? requestAiMode, int? scalarAiMode)
+    {
+        if (requestAiMode.HasValue)
+        {
+            return requestAiMode.Value;
+        }
+
+        if (scalarAiMode.HasValue)
+        {
+            return scalarAiMode.Value;
+        }
+
+        return _frkProcedureService.GetConfiguredAiMode(target);
     }
 }

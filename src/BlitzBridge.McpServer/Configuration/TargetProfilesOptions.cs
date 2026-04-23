@@ -18,4 +18,6 @@ public sealed class SqlTargetProfile
     public bool Enabled { get; set; } = true;
 
     public int CommandTimeoutSeconds { get; set; } = 30;
+
+    public int AiMode { get; set; } = 2;
 }

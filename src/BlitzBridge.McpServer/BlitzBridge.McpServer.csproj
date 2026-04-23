@@ -2,16 +2,28 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>true</IsPackable>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>b9f680e1-250a-44e0-9cd3-9684897a00b9</UserSecretsId>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>blitz-bridge</ToolCommandName>
+    <PackageId>BlitzBridge.McpServer</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Blitz Bridge Team</Authors>
+    <Description>Read-only MCP server for Brent Ozar FRK diagnostics against allowlisted Azure SQL targets.</Description>
+    <PackageTags>mcp;sql;diagnostics;azure-sql;dotnet-tool</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Link="README.md" />
+    <None Include="..\..\README.md" Link="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.0" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
   </ItemGroup>

@@ -206,6 +206,12 @@ public sealed partial class FrkProcedureService
         return _mapper.MapTargetCapabilities(capabilities);
     }
 
+    public int GetConfiguredAiMode(string target)
+    {
+        ValidateTarget(target);
+        return _sqlExecutionService.GetConfiguredAiMode(target);
+    }
+
     private static void ValidateTarget(string target)
     {
         if (string.IsNullOrWhiteSpace(target))

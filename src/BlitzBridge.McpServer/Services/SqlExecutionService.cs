@@ -19,6 +19,8 @@ public interface ISqlExecutionService
     Task<SqlTargetCapabilities> GetTargetCapabilitiesAsync(
         string target,
         CancellationToken cancellationToken = default);
+
+    int GetConfiguredAiMode(string target);
 }
 
 public sealed class SqlExecutionService : ISqlExecutionService
@@ -148,6 +150,12 @@ public sealed class SqlExecutionService : ISqlExecutionService
         };
     }
 
+    public int GetConfiguredAiMode(string target)
+    {
+        var targetContext = GetTargetContext(target, "sp_BlitzCache", null);
+        return targetContext.Profile.AiMode;
+    }
+
     private async Task<DataSet> ExecuteTextQueryAsync(
         ResolvedTargetContext targetContext,
         string sql,
@@ -180,6 +188,8 @@ public sealed class SqlExecutionService : ISqlExecutionService
         }
 
         var connectionStringBuilder = new SqlConnectionStringBuilder(profile.ConnectionString);
+        connectionStringBuilder.ApplicationIntent = ApplicationIntent.ReadOnly;
+        connectionStringBuilder.MultipleActiveResultSets = false;
         var currentDatabase = connectionStringBuilder.InitialCatalog;
 
         ValidateProcedureAccess(profile, procedureName);

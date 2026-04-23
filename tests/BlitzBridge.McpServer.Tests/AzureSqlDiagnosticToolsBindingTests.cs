@@ -67,6 +67,24 @@ public class AzureSqlDiagnosticToolsBindingTests
     }
 
     [Test]
+    public async Task BlitzCache_UsesConfiguredAiMode_WhenAiModeIsNotSupplied()
+    {
+        var sqlService = new FakeSqlExecutionService { ConfiguredAiMode = 1 };
+        var tools = new AzureSqlDiagnosticTools(new FrkProcedureService(sqlService, new FrkResultMapper()));
+
+        var result = await tools.AzureSqlBlitzCache(
+            target: "primary-sql-target",
+            sortOrder: "reads",
+            top: 7);
+
+        await Assert.That(sqlService.LastProcedureTarget).IsEqualTo("primary-sql-target");
+        await Assert.That(sqlService.LastParameters["@AI"]?.ToString()).IsEqualTo("1");
+
+        var response = (AzureSqlBlitzCacheResponse)result;
+        await Assert.That(response.AiMode).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task HttpSample_UsesExpectedMcpArgumentsShape_ForTargetCapabilities()
     {
         var httpFilePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "BlitzBridge.McpServer", "BlitzBridge.McpServer.http"));
@@ -92,6 +110,7 @@ public class AzureSqlDiagnosticToolsBindingTests
 
     private sealed class FakeSqlExecutionService : ISqlExecutionService
     {
+        public int ConfiguredAiMode { get; set; } = 2;
         public string LastCapabilitiesTarget { get; private set; } = string.Empty;
         public string LastProcedureTarget { get; private set; } = string.Empty;
         public string LastProcedureName { get; private set; } = string.Empty;
@@ -140,5 +159,7 @@ public class AzureSqlDiagnosticToolsBindingTests
 
             return Task.FromResult(dataSet);
         }
+
+        public int GetConfiguredAiMode(string target) => ConfiguredAiMode;
     }
 }
