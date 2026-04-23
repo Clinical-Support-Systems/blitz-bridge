@@ -15,3 +15,10 @@ Backend agent initialized with day-1 project context.
 - Dual-mode signatures (flattened scalars + optional request DTO) removed the brittle binding dependency while preserving compatibility with existing request-wrapper callers.
 - After binding was fixed, tool invocations progressed to real target validation (`Unknown or disabled target ...`), confirming the unhandled binder exception path was eliminated.
 - Pattern now extensible: other tools can follow same dual-mode approach for consistent MCP interop.
+
+**Commit:** `a02d4dd` - Approved by Kori Francis
+- Validation: 4/4 regression tests pass (TUnit)
+- All 4 staging validations passed (solution build, test project build, test exe)
+- No unintended files staged (only implementation + tests + csproj)
+- Commit message includes dual-mode signature design and regression test coverage
+- Pushed to `origin/main` as direct commit (no PR needed for direct main workflow)
