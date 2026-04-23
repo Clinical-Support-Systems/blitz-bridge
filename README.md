@@ -67,6 +67,28 @@ Configure in `.cursor/mcp.json`:
 }
 ```
 
+## Try it in 5 minutes
+
+Want to test Blitz Bridge without installing? Use Docker Compose:
+
+```bash
+cd samples/docker-compose-demo
+cp .env.example .env
+# Edit .env with your local demo SA password + token
+docker compose up --build
+```
+
+Then test the MCP endpoint:
+
+```bash
+curl -X POST http://localhost:5000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-demo-token-here" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}'
+```
+
+See [samples/docker-compose-demo/README.md](samples/docker-compose-demo/README.md) for details.
+
 ## Configuration
 
 Blitz Bridge reads target profiles from a JSON config file:

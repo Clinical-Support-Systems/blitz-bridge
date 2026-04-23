@@ -1,0 +1,70 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: blitzbridge-demo-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+    ports:
+      - "14333:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -x /opt/mssql-tools18/bin/sqlcmd ]; then /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -b -Q \"SELECT 1\"; else /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -b -Q \"SELECT 1\"; fi || exit 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  sql-init:
+    image: mcr.microsoft.com/mssql-tools
+    container_name: blitzbridge-demo-init
+    restart: "no"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      SA_PASSWORD: "${SA_PASSWORD}"
+      SEED_SCRIPT: "seed-workload.sql"
+    volumes:
+      - ./sql:/workspace/sql:ro
+      - ./scripts:/workspace/scripts:ro
+    entrypoint: ["/bin/bash", "/workspace/scripts/init-sql.sh"]
+
+  blitzbridge:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: blitzbridge-demo-mcp
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      sql-init:
+        condition: service_completed_successfully
+    environment:
+      ASPNETCORE_URLS: "http://+:5000"
+      BlitzBridge__Auth__Mode: "BearerToken"
+      BLITZBRIDGE_AUTH_TOKENS: "${BLITZ_BRIDGE_TOKEN}"
+      SqlTargets__Profiles__demo-sql-target__ConnectionString: "Server=sqlserver,1433;Database=DBAtools;User ID=sa;Password=${SA_PASSWORD};Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadOnly;"
+      SqlTargets__Profiles__demo-sql-target__AllowedDatabases__0: "DBAtools"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__0: "sp_Blitz"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__1: "sp_BlitzCache"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__2: "sp_BlitzFirst"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__3: "sp_BlitzIndex"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__4: "sp_BlitzLock"
+      SqlTargets__Profiles__demo-sql-target__AllowedProcedures__5: "sp_BlitzWho"
+      SqlTargets__Profiles__demo-sql-target__Enabled: "true"
+      SqlTargets__Profiles__demo-sql-target__CommandTimeoutSeconds: "60"
+      SqlTargets__Profiles__demo-sql-target__AiMode: "2"
+    volumes:
+      - ./profiles.json:/app/demo-profiles.json:ro
+    ports:
+      - "5000:5000"
+
+volumes:
+  mssql-data:

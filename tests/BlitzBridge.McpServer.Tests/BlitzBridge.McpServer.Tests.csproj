@@ -5,6 +5,11 @@
     <Nullable>enable</Nullable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="TestResults\**" />
+    <EmbeddedResource Remove="TestResults\**" />
+    <None Remove="TestResults\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.*" />

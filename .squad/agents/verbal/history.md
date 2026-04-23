@@ -89,3 +89,19 @@ Docs agent initialized with day-1 project context.
 
 **Artifact:** `.squad/decisions/inbox/verbal-auth-docs-cleanup.md` created with detailed audit + findings.
 
+### Session 6: Docker Compose Demo Documentation (2026-04-24)
+
+1. **First-timer framing:** Docker Compose demo leads with three simple commands: `cp .env.example .env`, edit password/token, then `docker compose up`. This removes friction for teams wanting to test without CLI installation or local config complexity.
+
+2. **Sample curl validates end-to-end:** Including a `curl` call against `/mcp` with `tools/list` request lets users immediately verify the server is responsive and responding with expected tool inventory (azure_sql_target_capabilities, azure_sql_blitz_cache, etc.). No guessing—users see success or know exactly where auth/networking broke.
+
+3. **Linker location is critical:** Placing "Try it in 5 minutes" after the Install section (before Configuration) signals to users that this is the fastest experiential path, not a secondary workflow. Positioning matters for adoption.
+
+4. **Docker/Compose assumes existing orchestration:** No Aspire, no global tool install, no appsettings binding—just `.env` + standard container runtime. This unblocks teams already running containers and lowers barrier to evaluation.
+
+5. **Troubleshooting in demo docs prevents support fatigue:** Pre-seeding common errors (connection failures, 401, port conflicts) in the demo README means users self-resolve before filing issues. Realistic error messages beat aspirational documentation.
+
+**Artifact:** `samples/docker-compose-demo/README.md` created with 3-command flow, curl sample, and troubleshooting; linked from main README under new "Try it in 5 minutes" heading.
+
+**Decision Created:** `.squad/decisions/inbox/verbal-docker-demo-docs.md` (pending merge).
+

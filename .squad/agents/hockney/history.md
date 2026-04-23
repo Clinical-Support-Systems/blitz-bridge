@@ -17,3 +17,11 @@ Azure SQL specialist initialized with day-1 project context.
 - Added startup validation guardrails for profile safety (`ApplicationIntent=ReadOnly`, timeout bounds, known FRK procedures, non-blank allowlists).
 - Reinforced runtime connection safety by forcing `ApplicationIntent=ReadOnly` and `MARS=false` when opening SQL connections.
 - **Decision merged** → `hockney-config-paths.md` consolidated to `decisions.md` as Decision 006 (Active)
+
+### Docker Compose zero-dependency sandbox (2026-04-24)
+
+- Replaced the demo stack with a true local sandbox using SQL Server 2022 + one-shot init + Blitz Bridge HTTP service, all health-gated in compose.
+- Pinned and vendored FRK installer from First Responder Kit tag `20240222` (`Install-Core-Blitz-No-Query-Store.sql`) into `samples/docker-compose-demo/sql/frk-install.sql`.
+- Added split seed strategy: `seed-workload.sql` for rich demo query-cache output and `seed-test.sql` for reusable deterministic integration setup.
+- Added a repeatable verifier script (`scripts/verify-demo.ps1`) that validates compose startup and calls `azure_sql_health_check` on `demo-sql-target`.
+- Wrote decision note: `.squad/decisions/inbox/hockney-docker-demo.md`.

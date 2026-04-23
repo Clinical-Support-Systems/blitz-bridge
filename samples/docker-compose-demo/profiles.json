@@ -1,0 +1,14 @@
+{
+  "SqlTargets": {
+    "Profiles": {
+      "demo-sql-target": {
+        "ConnectionString": "Server=sqlserver,1433;Database=DBAtools;User ID=sa;Password=<SA_PASSWORD_FROM_ENV>;Encrypt=False;TrustServerCertificate=True;ApplicationIntent=ReadOnly;",
+        "AllowedDatabases": ["DBAtools"],
+        "AllowedProcedures": ["sp_Blitz", "sp_BlitzCache", "sp_BlitzFirst", "sp_BlitzIndex", "sp_BlitzLock", "sp_BlitzWho"],
+        "Enabled": true,
+        "CommandTimeoutSeconds": 60,
+        "AiMode": 2
+      }
+    }
+  }
+}

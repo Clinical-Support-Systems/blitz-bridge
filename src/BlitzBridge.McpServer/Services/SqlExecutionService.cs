@@ -85,6 +85,7 @@ public sealed class SqlExecutionService : ISqlExecutionService
 
         await using var connection = new SqlConnection(targetContext.ConnectionStringBuilder.ConnectionString);
         await connection.OpenAsync(cancellationToken);
+        await ConfigureSessionSetOptionsAsync(connection, cancellationToken);
 
         using var command = new SqlCommand(procedureName, connection)
         {
@@ -163,6 +164,7 @@ public sealed class SqlExecutionService : ISqlExecutionService
     {
         await using var connection = new SqlConnection(targetContext.ConnectionStringBuilder.ConnectionString);
         await connection.OpenAsync(cancellationToken);
+        await ConfigureSessionSetOptionsAsync(connection, cancellationToken);
 
         using var command = new SqlCommand(sql, connection)
         {
@@ -240,6 +242,16 @@ public sealed class SqlExecutionService : ISqlExecutionService
         return profile.AllowedProcedures.Count > 0
             ? profile.AllowedProcedures
             : DefaultAllowedProcedures;
+    }
+
+    private static async Task ConfigureSessionSetOptionsAsync(
+        SqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        using var setOptionsCommand = new SqlCommand(
+            "SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON;",
+            connection);
+        await setOptionsCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static List<string> BuildCapabilityNotes(

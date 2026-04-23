@@ -53,3 +53,12 @@ Backend agent initialized with day-1 project context.
 - Updated tests to reference the canonical auth model; direct test executable run remains the reliable .NET 10 validation path in this repo.
 - Validation: `dotnet build BlitzBridge.slnx` passed; `dotnet build tests/BlitzBridge.McpServer.Tests/BlitzBridge.McpServer.Tests.csproj` passed; `tests/BlitzBridge.McpServer.Tests/bin/Debug/net10.0/BlitzBridge.McpServer.Tests.exe` passed (`22/22`).
 
+### Batch 3: Repo-Root Dockerfile for MCP Server (2026-04-24)
+
+- Added a new minimal repo-root `Dockerfile` for `BlitzBridge.McpServer` because no Dockerfile existed in the repository.
+- Implemented a two-stage .NET 10 container build: SDK image restores/publishes `BlitzBridge.McpServer`, then ASP.NET runtime image serves the published output.
+- Final image now runs as a non-root `app` user and exposes port `5000` with `ASPNETCORE_URLS=http://+:5000` for predictable hosted `/mcp` endpoint access.
+- Startup command explicitly pins HTTP transport (`dotnet BlitzBridge.McpServer.dll --transport http`) to align with compose/hosted MCP usage.
+- Validation target: local `docker build` from repo root using the new Dockerfile.
+- Local Docker validation now passes: `docker build -t blitzbridge-mcpserver:local -f Dockerfile .`.
+- Runtime hardening uses the .NET image-provided non-root identity (`USER $APP_UID`) for broad base-image compatibility.

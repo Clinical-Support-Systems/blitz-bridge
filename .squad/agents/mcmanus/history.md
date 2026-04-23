@@ -41,3 +41,12 @@ Tester initialized with day-1 project context.
 - Kept stdio transport bypass coverage intact (`StdioTransport_BypassesHttpAuthMiddleware_AndStillInitializes`) to ensure HTTP auth configuration does not affect stdio initialize flow.
 - Validation: built tests and executed TUnit host directly; full suite passed (22/22, failed 0, skipped 0).
 
+### Batch 0: Docker Compose Demo Verification (2026-04-24)
+
+- Validated fresh-machine compose behavior for `samples/docker-compose-demo` by repeatedly running `docker compose down --volumes --remove-orphans` then `docker compose up --build -d`, confirming stack starts from clean state with no pre-existing SQL data.
+- Confirmed startup ordering guards: `sql-init` now waits for SQL readiness, installs FRK, applies seed, and writes `dbo.BlitzBridgeInitComplete`; SQL healthcheck requires `DBAtools`, `sp_Blitz`, and `BlitzBridgeInitComplete`; `blitzbridge` depends on SQL health + successful `sql-init`.
+- Added reusable verification artifact `samples/docker-compose-demo/scripts/verify-demo.ps1` to validate compose config, clean startup, MCP `tools/list` tool inventory, and `azure_sql_health_check` call path against `demo-sql-target`.
+- Identified and mitigated race and portability issues: compose command argument handling in PowerShell, CRLF line ending breakage in `init-sql.sh`, and over-heavy default seed script; default seed now uses `seed-test.sql` for deterministic readiness checks.
+- Found runtime coupling issue where FRK execution could fail with SQL `QUOTED_IDENTIFIER` session mismatch in containerized path; fixed by setting session options before SQL command execution in `SqlExecutionService`.
+- Validation after changes: `dotnet build BlitzBridge.slnx` passed, test project build + direct TUnit host run passed (`22/22`), compose stack reaches healthy SQL + running bridge state with init completion marker.
+

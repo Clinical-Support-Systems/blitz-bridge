@@ -1,0 +1,10 @@
+.git
+.vs
+**/bin/
+**/obj/
+**/TestResults/
+tests/
+docs/
+.squad/
+.copilot/
+samples/docker-compose-demo/.env
