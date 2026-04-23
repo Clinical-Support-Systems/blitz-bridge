@@ -8,3 +8,10 @@
 ## Learnings
 
 Backend agent initialized with day-1 project context.
+
+### Batch 0: Request Binding Fix (2026-04-23)
+
+- MCP tool binding in ModelContextProtocol.AspNetCore treated complex DTO parameters as a required top-level `request` argument, so flattened `arguments` payloads were rejected before business logic ran.
+- Dual-mode signatures (flattened scalars + optional request DTO) removed the brittle binding dependency while preserving compatibility with existing request-wrapper callers.
+- After binding was fixed, tool invocations progressed to real target validation (`Unknown or disabled target ...`), confirming the unhandled binder exception path was eliminated.
+- Pattern now extensible: other tools can follow same dual-mode approach for consistent MCP interop.
