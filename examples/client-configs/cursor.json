@@ -1,0 +1,17 @@
+{
+  "_comment": [
+    "Prereqs: install Blitz Bridge as a global tool (`dotnet tool install -g BlitzBridge.McpServer`).",
+    "Substitute: update --config path to your real profiles.json path."
+  ],
+  "mcpServers": {
+    "blitz-bridge": {
+      "command": "blitz-bridge",
+      "args": [
+        "--transport",
+        "stdio",
+        "--config",
+        "/Users/<you>/.config/blitz-bridge/profiles.json"
+      ]
+    }
+  }
+}

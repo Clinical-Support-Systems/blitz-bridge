@@ -1,0 +1,15 @@
+{
+  "_comment": [
+    "Prereqs: deployed Blitz Bridge HTTP endpoint (for example from `azd up`) and a bearer token.",
+    "Substitute: set BLITZBRIDGE_URL and BLITZBRIDGE_TOKEN in your environment before starting Claude Desktop."
+  ],
+  "mcpServers": {
+    "blitz-bridge-hosted": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "curl -sS -X POST -H \"Authorization: Bearer $BLITZBRIDGE_TOKEN\" -H \"Content-Type: application/json\" -d @- \"$BLITZBRIDGE_URL/mcp\""
+      ]
+    }
+  }
+}
