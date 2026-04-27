@@ -45,16 +45,17 @@ public class StartupConfigurationTests
     }
 
     [Test]
-    public async Task Parse_DefaultsToHttp_WhenTransportFlagIsNotProvided()
+    public async Task Parse_FailsFast_WhenNoArgumentsProvided()
     {
         var result = StartupConfiguration.Parse(
             [],
             () => @"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json",
             _ => false);
 
-        await Assert.That(result.ShouldFailFast).IsFalse();
-        await Assert.That(result.ConfigPath).IsNull();
-        await Assert.That(result.TransportMode).IsEqualTo(TransportMode.Http);
+        await Assert.That(result.ShouldFailFast).IsTrue();
+        await Assert.That(result.ExitCode).IsEqualTo(2);
+        await Assert.That(result.FailureMessage).Contains("No arguments provided");
+        await Assert.That(result.FailureMessage).Contains("--init-config");
     }
 
     [Test]

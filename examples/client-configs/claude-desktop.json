@@ -5,7 +5,7 @@
   ],
   "mcpServers": {
     "blitz-bridge": {
-      "command": "blitz-bridge",
+      "command": "blitzbridge",
       "args": [
         "--transport",
         "stdio",
@@ -15,3 +15,4 @@
     }
   }
 }
+

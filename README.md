@@ -24,8 +24,8 @@ Use this when you want the quickest path for local or workstation use.
 
 ```bash
 dotnet tool install -g BlitzBridge.McpServer
-blitz-bridge --init-config
-blitz-bridge --transport stdio --config path/to/profiles.json
+blitzbridge --init-config
+blitzbridge --transport stdio --config path/to/profiles.json
 ```
 
 `--init-config` creates a starter `profiles.json` and exits without starting the server.
@@ -34,7 +34,7 @@ blitz-bridge --transport stdio --config path/to/profiles.json
   - Windows: `%APPDATA%\blitz-bridge\profiles.json`
   - Linux/macOS: `~/.config/blitz-bridge/profiles.json`
 - Optional custom path:
-  - `blitz-bridge --init-config --config ./profiles.beta.json`
+  - `blitzbridge --init-config --config ./profiles.beta.json`
 
 Client config examples:
 
@@ -130,3 +130,4 @@ See `SECURITY.md` for vulnerability reporting, guarantees, and non-goals.
 - Architecture overview: `docs/architecture.md`
 - Azure deployment guide: `docs/deployment-azure.md`
 - SQL least-privilege role script: `docs/sql/blitz-bridge-role.sql`
+

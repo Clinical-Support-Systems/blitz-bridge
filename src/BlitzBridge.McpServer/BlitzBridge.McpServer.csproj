@@ -11,7 +11,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UserSecretsId>b9f680e1-250a-44e0-9cd3-9684897a00b9</UserSecretsId>
 		<PackAsTool>true</PackAsTool>
-		<ToolCommandName>blitz-bridge</ToolCommandName>
+		<ToolCommandName>blitzbridge</ToolCommandName>
 		<PackageId>BlitzBridge</PackageId>
 		<Version>1.0.0</Version>
 		<Authors>kfrancis</Authors>

@@ -28,6 +28,17 @@ internal sealed record StartupConfiguration(
         Func<string> defaultConfigPathProvider,
         Func<string, bool> fileExists)
     {
+        if (args.Length == 0)
+        {
+            return new StartupConfiguration(
+                TransportMode.Stdio,
+                defaultConfigPathProvider(),
+                true,
+                "No arguments provided. Run 'blitzbridge --init-config' to create a sample profiles.json, then start with '--transport stdio'.",
+                2,
+                false);
+        }
+
         var shouldInitializeConfig = HasFlag(args, InitConfigFlag);
         var transport = GetFlagValue(args, TransportFlag, out _, out _);
         var transportMode = transport?.ToLowerInvariant() switch
