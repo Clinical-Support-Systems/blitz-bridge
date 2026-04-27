@@ -78,7 +78,9 @@ jobs:
         with:
           global-json-file: 'global.json'
       - name: Run tests
-        run: dotnet test tests/BlitzBridge.McpServer.Tests/BlitzBridge.McpServer.Tests.csproj --configuration Release --filter 'FullyQualifiedName!~TestBase'
+        run: |
+          dotnet build tests/BlitzBridge.McpServer.Tests/BlitzBridge.McpServer.Tests.csproj --configuration Release --nologo
+          dotnet tests/BlitzBridge.McpServer.Tests/bin/Release/net10.0/BlitzBridge.McpServer.Tests.dll --results-directory TestResults --report-trx
 
   deploy:
     if: github.event_name == 'release'
