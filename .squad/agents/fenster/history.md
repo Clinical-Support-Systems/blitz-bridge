@@ -72,3 +72,25 @@ Backend agent initialized with day-1 project context.
 - Key design files for this work: `docs/progressive-disclosure-response-shapes.md`, `src/BlitzBridge.McpServer/Tools/AzureSqlDiagnosticTools.cs`, `src/BlitzBridge.McpServer/Services/FrkResultMapper.cs`, `src/BlitzBridge.McpServer/Models/ToolResponses/`.
 - **Decision merged** → `fenster-progressive-disclosure.md` consolidated to `decisions.md` as Decision 015 (Active)
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-fenster.md`
+
+### Batch 3.2: Progressive Disclosure Phase 2 Implementation (2026-04-27)
+
+- Implemented the additive progressive-disclosure runtime in `src/BlitzBridge.McpServer`: parent diagnostic responses now emit explicit-dispatch handles (`parentTool` + `kind`) plus summary scalars/counts while preserving existing compact arrays and `IncludeVerboseResults` compatibility.
+- Added stateless detail fetch flow through `azure_sql_fetch_detail_by_handle`, with request/response models in `src/BlitzBridge.McpServer/Models/ToolRequests/AzureSqlFetchDetailByHandleRequest.cs` and `src/BlitzBridge.McpServer/Models/ToolResponses/AzureSqlFetchDetailByHandleResponse.cs`.
+- Handle encoding now uses versioned base64 JSON (`v1:` prefix) via `src/BlitzBridge.McpServer/Services/ProgressiveDisclosureHandleCodec.cs`; clients treat handles as opaque while the server validates target, parent tool, and kind explicitly.
+- `FrkProcedureService` now re-runs allowlisted FRK procedures for detail fetches instead of caching result sets, preserving read-only and restart-safe behavior.
+- `FrkResultMapper` owns both parent-response handle emission and detail payload shaping; table sections return `items`, AI sections return `contentType` + `content`.
+- Response-size telemetry now runs on every tool call through `src/BlitzBridge.McpServer/Services/ResponseTelemetry.cs`, tagging the current span with `blitzbridge.response.estimated_tokens` using a chars/4 estimate and recording diagnostics histograms.
+- Validation added for explicit dispatch failure modes: unknown `parentTool`, unknown `kind`, malformed/mismatched handles, access drift, and section-not-found paths raise `ProgressiveDisclosureException` with stable error codes.
+- Regression coverage lives in `tests/BlitzBridge.McpServer.Tests/AzureSqlDiagnosticToolsBindingTests.cs`; validation passed with `dotnet build BlitzBridge.slnx` and `tests\\BlitzBridge.McpServer.Tests\\bin\\Debug\\net10.0\\BlitzBridge.McpServer.Tests.exe` (`34/34`).
+
+### Batch 3.3: Auth Cleanup + Docker Dockerfile (2026-04-27)
+
+- Consolidated duplicate auth options classes: deleted `HttpAuthOptions.cs`, standardized on `BlitzBridgeAuthOptions` bound to `BlitzBridge:Auth` section
+- All middleware and tests updated to use canonical auth model with Mode/Tokens properties and BLITZBRIDGE_AUTH_TOKENS precedence
+- Added repo-root `Dockerfile` with multi-stage build (NET 10 SDK → NET 10 ASP.NET runtime), non-root app user, default HTTP transport, port 5000 exposure
+- Docker validation: `docker build -t blitzbridge-mcpserver:local -f Dockerfile .` succeeded locally
+- **Decisions merged** → `fenster-auth-cleanup.md` + `fenster-root-dockerfile.md` consolidated to decisions.md as Decisions 020, 022 (Active)
+- **Orchestration logged** → `2026-04-27T15-45-41-fenster.md` recorded
+
+## Learnings

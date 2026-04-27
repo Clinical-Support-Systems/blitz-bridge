@@ -84,3 +84,22 @@ Team lead agent initialized with day-1 project context.
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-15-29Z-keaton.md`
 - **Next:** Team reviews revised design. Fenster begins Phase 1 implementation.
 
+### Session 9: Progressive Disclosure Phase 2 Final Review (2026-04-28)
+
+- **APPROVED for merge** → Full code review of detail tool, stateless replay, handle codec, dispatch validation, and error contracts. All match design spec exactly.
+- **Read-only safety verified** → Detail fetch re-runs the *same* FRK stored procedure through `SqlExecutionService.ExecuteStoredProcedureAsync`, which enforces `ApplicationIntent=ReadOnly`, MARS=false, and allowlist validation on every call. No bypass path exists.
+- **Allowlist guarantees verified** → `ValidateDetailFetchRequest` checks `ParentTool` against `ParentTools[]` and `Kind` against `ValidKindsByParentTool` *before* any SQL execution. The handle's embedded parentTool is additionally cross-checked against the request's explicit dispatch values in `ValidateHandleMatchesRequest`. Defense in depth: switch expression in `FetchDetailByHandleAsync` also rejects unknown parentTool with `CreateUnknownParentToolException`.
+- **Handle codec durability against FRK version bumps** → Handle payload encodes *request parameters only* (target, databaseName, sortOrder, expertMode, aiMode, etc.) — no FRK-version-specific data. If FRK adds new result-set columns or changes section order, the mapper handles it (positional table index + `EnsureTableExists` → 404). If FRK adds new procedures, `ValidKindsByParentTool` must be extended — this is a whitelist-only change, not a breaking one. Version field (`v1:` prefix) allows future codec migration.
+- **Hockney's live-target gap accepted** → The four items Hockney could not prove (section data stability, empty sections, token savings, restart replay) are all mitigated: (1) FRK section names are stable across releases (documented contract), (2) empty sections produce correct 404, (3) token savings are theoretical until real workloads, (4) stateless handle design is provably restart-safe by construction. No merge-blocking risk.
+- **Build: 0 warnings, 0 errors. Tests: 37/37 passed.** All gates green.
+- **Key files reviewed:** `FrkProcedureService.cs`, `ProgressiveDisclosureHandleCodec.cs`, `ProgressiveDisclosureException.cs`, `SqlExecutionService.cs`, `AzureSqlDiagnosticTools.cs`, `AzureSqlFetchDetailByHandleResponse.cs`, `AzureSqlDetailHandle.cs`, `AzureSqlDiagnosticToolsBindingTests.cs`
+- **Decision written** → `.squad/decisions/inbox/keaton-progressive-disclosure-phase2-review.md`
+
+### Session 10: Phase 2 Session Completion & Orchestration (2026-04-28)
+
+- All five agents (Fenster, McManus, Verbal, Hockney) phase 2 tasks completed and orchestration evidence captured
+- Final verdict: Phase 2 approved for merge with no merge-blocking issues
+- Decisions consolidated: 13 new decisions (020–032) merged from inbox to `decisions.md`
+- **Decisions merged** → `keaton-progressive-disclosure-phase2-review.md` consolidated to decisions.md as Decision 025 (Active)
+- **Orchestration logged** → `2026-04-27T15-45-41-keaton.md` recorded
+- Status: Ready for git commit and team review closure

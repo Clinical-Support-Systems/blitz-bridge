@@ -60,3 +60,20 @@ Tester initialized with day-1 project context.
 - **Decision merged** → `mcmanus-progressive-disclosure-review.md` consolidated to `decisions.md` as Decision 017 (Active)
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-mcmanus.md`
 
+
+
+### Batch 0: Progressive Disclosure Phase 2 Coverage (2026-04-27)
+
+- Added progressive-disclosure contract coverage in `tests/BlitzBridge.McpServer.Tests/AzureSqlDiagnosticToolsBindingTests.cs` for emitted handles, detail fetch success, and explicit-dispatch failures (`unknown_parent_tool`, `unknown_kind`, malformed handle, mismatched dispatch metadata).
+- Verified the FRK fixture path end-to-end: a summary `azure_sql_blitz_cache` response returns section handles, and drilling into a returned `warning_glossary` handle yields a non-empty detail payload.
+- Pinned the McManus guardrail in tests: `sp_BlitzCache` and `sp_BlitzFirst` stay section-scoped for progressive disclosure; no row-level identity assumptions are asserted.
+- Response/detail contracts now rely on `AzureSqlDetailHandle`, `AzureSqlFetchDetailByHandleRequest`, `AzureSqlFetchDetailByHandleResponse`, and `ProgressiveDisclosureHandleCodec` under `src/BlitzBridge.McpServer`.
+- Validation: `dotnet build BlitzBridge.slnx` passed; test project build plus direct TUnit host run passed (`37/37`).
+
+### Batch 3.3: Phase 2 Session Completion & Orchestration (2026-04-28)
+
+- All phase 2 test contracts passing: handle emission from parent tools, summary-to-detail flow validation, explicit dispatch error handling, WebApplicationFactory auth matrix (4 mode/header combinations), docker-compose-demo verification
+- Test suite final state: 37/37 passed (handle dispatch, auth matrix, docker demo smoke tests, backward compatibility)
+- **Decisions merged** → `mcmanus-progressive-disclosure-phase2.md` + `mcmanus-compose-verification.md` + `mcmanus-waf-auth-tests.md` consolidated to decisions.md as Decisions 027, 026, 028 (Active)
+- **Orchestration logged** → `2026-04-27T15-45-41-mcmanus.md` recorded
+

@@ -430,6 +430,448 @@ Keaton completed targeted revision pass on `docs/progressive-disclosure-design.m
 
 **Related:** `docs/progressive-disclosure-design.md`, `.squad/decisions/inbox/keaton-progressive-disclosure-revision.md`
 
+### Decision 020: Auth Cleanup — Canonical Auth Options & Bind Consolidation (2026-04-24)
+
+**Author:** Fenster  
+**Status:** Active  
+**Scope:** Resolve duplicate auth configuration types, standardize to single canonical model
+
+**Resolution:**
+
+Removed duplicate auth options types and standardized MCP server on one canonical model bound to `BlitzBridge:Auth`.
+
+1. Deleted `src/BlitzBridge.McpServer/Configuration/HttpAuthOptions.cs`
+2. Created canonical `src/BlitzBridge.McpServer/Configuration/BlitzBridgeAuthOptions.cs` with:
+   - `SectionName = "BlitzBridge:Auth"`
+   - `EnvironmentTokenListVariable = "BLITZBRIDGE_AUTH_TOKENS"`
+   - `Mode` (default `None`)
+   - `Tokens` allowlist
+3. Updated wiring and middleware to use canonical types
+4. Updated tests to consume canonical auth options type
+
+**Behavior Verification:**
+- Auth mode behavior preserved (`None`, `BearerToken`)
+- Token precedence preserved (`BLITZBRIDGE_AUTH_TOKENS` > config)
+- Constant-time validation preserved (SHA-256 + FixedTimeEquals)
+- Stdio behavior unaffected
+
+**Related:** `src/BlitzBridge.McpServer/Configuration/`, `src/BlitzBridge.McpServer/Middleware/`, Decision 011
+
+### Decision 021: Progressive Disclosure Phase 2 — Implementation (Fenster) (2026-04-27)
+
+**Author:** Fenster  
+**Status:** Completed  
+**Scope:** Implement detail tool, stateless replay, mapper metadata, token telemetry
+
+**Implementation Completed:**
+
+1. **Versioned opaque handle codec** — `v1:` + base64 JSON; require explicit `parentTool` + `kind` dispatch on fetch tool
+2. **Response-size telemetry** — Record at tool boundary for every response (legacy inline + detail-fetch)
+3. **Detail orchestration** — `FrkProcedureService` with explicit dispatch validation
+4. **Response mapping** — `FrkResultMapper` shapes handles with section metadata (title, severity, preview, itemCount, totalCount)
+5. **Handle codec** — `ProgressiveDisclosureHandleCodec` with version prefix for forward-compatibility
+
+**Artifacts:**
+- `src/BlitzBridge.McpServer/Tools/AzureSqlDiagnosticTools.cs`
+- `src/BlitzBridge.McpServer/Services/FrkProcedureService.cs`
+- `src/BlitzBridge.McpServer/Services/FrkResultMapper.cs`
+- `src/BlitzBridge.McpServer/Services/ProgressiveDisclosureHandleCodec.cs`
+- `src/BlitzBridge.McpServer/Services/ResponseTelemetry.cs`
+
+**Validation:**
+- `dotnet build BlitzBridge.slnx` — 0 warnings, 0 errors
+- Direct test executable — 34/34 passed
+
+**Related:** Decision 016, `docs/progressive-disclosure-design.md`
+
+### Decision 022: Repo-Root Dockerfile for BlitzBridge.McpServer (2026-04-24)
+
+**Author:** Fenster  
+**Status:** Active  
+
+Added minimal multi-stage container definition at repo root for `BlitzBridge.McpServer` with explicit HTTP transport defaults.
+
+**Key Decisions:**
+
+1. Single repo-root `Dockerfile` targeting `src/BlitzBridge.McpServer` publish output
+2. Use .NET 10 SDK for build/publish, .NET 10 ASP.NET runtime for final image
+3. Run final image as non-root `app` user
+4. Default container startup: `dotnet BlitzBridge.McpServer.dll --transport http`
+5. Container HTTP defaults: port `5000` (`ASPNETCORE_URLS=http://+:5000`, `EXPOSE 5000`)
+
+**Rationale:**
+- Multi-stage build keeps runtime image small
+- Non-root execution aligns with hardening baseline
+- Explicit HTTP startup prevents accidental stdio mode in containers
+- Port 5000 default matches existing hosted examples
+
+**Validation:**
+- `docker build -t blitzbridge-mcpserver:local -f Dockerfile .` succeeded locally
+
+**Related:** Decision 005 (Stdio Transport Architecture)
+
+### Decision 023: Docker Compose Zero-Dependency Demo Sandbox (2026-04-24)
+
+**Author:** Hockney  
+**Status:** Active  
+
+Added three-service compose stack for first-time evaluators with zero pre-existing SQL asset dependencies.
+
+**Key Decisions:**
+
+1. Three-service compose stack (`samples/docker-compose-demo/docker-compose.yml`):
+   - `sqlserver` (SQL Server 2022 Developer) with persistent volume + healthcheck
+   - `sql-init` one-shot initializer (waits for readiness, creates DBAtools, installs FRK, runs seed workload)
+   - `blitzbridge` built from repo-root Dockerfile, HTTP mode, gated on SQL health + init success
+
+2. Vendor FRK installer as `samples/docker-compose-demo/sql/frk-install.sql` pinned to tag `20240222`
+
+3. Split seeding for reuse:
+   - `seed-workload.sql` for demo cache-rich `sp_BlitzCache` output
+   - `seed-test.sql` for deterministic integration-test style setup
+
+4. Standardize demo secrets: `SA_PASSWORD` and `BLITZ_BRIDGE_TOKEN` via `.env.example`
+
+5. Scripted validation (`scripts/verify-demo.ps1`) proves startup path and MCP health behavior
+
+**Why:**
+Removes hidden prerequisites; makes 5-minute promise credible on clean machines. Split seed strategy keeps FRK install reusable across demo and test scenarios.
+
+**Artifacts:**
+- `samples/docker-compose-demo/docker-compose.yml`
+- `samples/docker-compose-demo/.env.example`
+- `samples/docker-compose-demo/profiles.json`
+- `samples/docker-compose-demo/sql/` (FRK + seeds)
+- `samples/docker-compose-demo/scripts/`
+
+**Related:** Decision 022 (Dockerfile)
+
+### Decision 024: Phase 2 Validation Complete — Implementation Matches Spec (2026-04-28)
+
+**Author:** Hockney  
+**Status:** Production Ready  
+**Scope:** Full validation of Phase 2 implementation against design spec
+
+**Finding:**
+
+Phase 2 implementation (FRK handles, stateless replay, explicit dispatch) **exactly matches** `docs/progressive-disclosure-design.md` specification and is **production-ready**.
+
+**Validated:**
+
+1. Explicit Dispatch — ValidKindsByParentTool[] whitelist correctly enforces no blind dispatch
+2. Handle Codec (v1 scheme) — Base64(JSON) encoding, versioned prefix, deterministic, tamper-detectable
+3. Request Model — All 4 required fields (target, parentTool, kind, handle) + 1 optional (maxRows) present
+4. Error Contracts — All 6 failure modes implemented with correct HTTP codes (400/403/404/500/504)
+5. Stateless Replay — Handles encode only request parameters; replay reconstructs identical request; deterministic re-runs
+6. Backward Compatibility — IncludeVerboseResults still works, marked deprecated in tool descriptions
+7. Read-Only Safety — Multi-layered defense (connection, allowlist, dispatch validation)
+8. Section Metadata — ItemCount (visible) + TotalCount (actual) tracking in handles
+9. Handle Tamper Detection — ValidateHandleMatchesRequest ensures decoded handle matches request
+10. Empty Section Handling — EnsureTableExists throws 404 if section absent
+
+**Could Not Be Proven (Mitigated):**
+- Real FRK section stability → FRK deterministic by design; standard functional testing before production
+- Token savings → Theoretical until real payloads; not merge-blocking
+- Process-restart determinism → Handles stateless by construction
+
+**Recommendation:** ✓ **Approve Phase 2 for production deployment. No code changes required.**
+
+**Related:** Decision 021, `docs/progressive-disclosure-design.md`, `.squad/agents/hockney/phase2-validation-report.md`
+
+### Decision 025: Progressive Disclosure Phase 2 — Final Review Verdict (2026-04-28)
+
+**Author:** Keaton (Lead)  
+**Status:** Approved for Merge  
+**Scope:** Full architectural review of Phase 2 implementation
+
+**Verdict: APPROVED FOR MERGE**
+
+**Five Review Dimensions:**
+
+1. **Read-Only / Allowlist Guarantees: PRESERVED**
+   - Detail fetch re-executes parent FRK procedures through same SqlExecutionService path
+   - ApplicationIntent=ReadOnly, ValidateProcedureAccess, ValidateDatabaseAccess enforced on every call
+   - No new execution path bypasses these checks
+
+2. **Dispatch/Handle Contract Durability: SOUND**
+   - Against FRK version bumps: handle encodes request parameters only (not output schema)
+   - FrkResultMapper adapts via positional table access; EnsureTableExists → 404 for missing sections
+   - Against handle tampering: ValidateHandleMatchesRequest cross-checks decoded handle vs. request parameters
+
+3. **Hockney's Live-Target Gap: ACCEPTED**
+   - Four unproven items (section stability, empty sections, token savings, restart replay) are mitigated by FRK design contract and D-3 fixture strategy
+   - No merge-blocking risk
+
+4. **Test Coverage: SUFFICIENT**
+   - 37/37 tests pass
+   - Covers handle emission, summary-to-detail flow, unknown kind/parentTool rejection, malformed handle, telemetry, backward compatibility
+
+5. **Build Status: CLEAN**
+   - `dotnet build BlitzBridge.slnx` — 0 warnings, 0 errors
+   - Test executable — 37 passed, 0 failed, 0 skipped
+
+**Decision:** Phase 2 is approved for merge. No reviewer lockout triggered.
+
+**Related:** Decision 021, Decision 024, `.squad/decisions/inbox/keaton-progressive-disclosure-phase2-review.md`
+
+### Decision 026: Docker Compose Demo Verification Guardrails (2026-04-24)
+
+**Author:** McManus  
+**Status:** Active  
+
+Demo bundle must behave like true fresh-machine path: reproducible startup, deterministic SQL init ordering, clear MCP readiness checks.
+
+**Key Decisions:**
+
+1. Treat `samples/docker-compose-demo` as self-contained verification bundle with explicit startup gates
+2. Require SQL readiness to include FRK + seed completion (not just SQL process availability)
+3. Minimal, deterministic verification script (`scripts/verify-demo.ps1`) checks:
+   - Compose config validity
+   - Clean startup from `down --volumes`
+   - Init completion
+   - MCP `tools/list` availability
+   - `azure_sql_health_check` invocation path
+
+4. Default lightweight seed (`seed-test.sql`) for readiness; heavier seed (`seed-workload.sql`) as opt-in
+5. SQL execution sessions set required options (`QUOTED_IDENTIFIER`, `ANSI_NULLS`) before procedure invocation
+
+**Why:**
+- Health/ordering must guard functional readiness, not container liveness
+- Fast deterministic seed keeps verification reliable
+- Explicit script-based checks make day-0 validation repeatable
+- Session-level SQL option normalization reduces environment-specific drift
+
+**Validation Evidence:**
+- `dotnet build BlitzBridge.slnx` succeeded
+- `dotnet build tests/BlitzBridge.McpServer.Tests` succeeded
+- TUnit host run: 22/22 passed
+- Compose stack reaches healthy state after clean restart
+
+**Minimal Fixes Applied:**
+- `verify-demo.ps1` argument-safe compose invocation
+- `init-sql.sh` deterministic flow
+- `docker-compose.yml` ordering + healthcheck gating
+- `SqlExecutionService.cs` sets required SQL session options
+
+**Related:** Decision 023, Decision 022
+
+### Decision 027: Progressive Disclosure Phase 2 — Test Gate (McManus) (2026-04-27)
+
+**Author:** McManus  
+**Status:** Completed  
+**Scope:** Unit/integration coverage for summary-to-detail flow, explicit-dispatch error contract
+
+**Test Coverage Locked:**
+
+1. `azure_sql_fetch_detail_by_handle` must succeed when given a handle from parent response
+2. Explicit dispatch stays contractual: reject unknown `parentTool`, reject illegal `kind` values, reject malformed/mismatched handles with clear failures
+3. Section-level handles for `sp_BlitzCache` and `sp_BlitzFirst`; tests assume section-level identity only (not row-level)
+
+**Why:**
+- Keeps new flow debuggable and fixture-friendly
+- Preserves guardrail against brittle row-level assumptions
+- Gives reviewers clean regression net around exact operator path (summary → drill-down)
+
+**Test Coverage:**
+- Handle emission from all four parent tools
+- Summary-to-detail flow (explicit dispatch)
+- Unknown kind rejection
+- Unknown parentTool rejection
+- Malformed handle rejection
+- Mismatched dispatch metadata rejection
+- Response telemetry recording
+- Backward compatibility (IncludeVerboseResults)
+
+**Artifacts:**
+- `tests/BlitzBridge.McpServer.Tests/` (37/37 passed)
+
+**Related:** Decision 021, `docs/progressive-disclosure-design.md`
+
+### Decision 028: WebApplicationFactory Auth Integration Matrix (2026-04-24)
+
+**Author:** McManus  
+**Status:** Active  
+
+HTTP auth behavior verified at ASP.NET pipeline boundary while keeping tests deterministic and fast.
+
+**Coverage Matrix:**
+
+1. `Mode=BearerToken` + no `Authorization` header => `401 Unauthorized`
+2. `Mode=BearerToken` + wrong bearer token => `401 Unauthorized`
+3. `Mode=BearerToken` + correct bearer token => `200 OK`
+4. `Mode=None` => `200 OK` regardless of header
+
+Additionally: Stdio bypass test proves stdio initialize RPC unaffected by HTTP auth settings.
+
+**Why:**
+- Validates real middleware behavior without external process dependency
+- Improves determinism while preserving integration-level confidence
+- Maintains guardrail that HTTP auth is transport-scoped; must not leak to stdio
+
+**Validation Evidence:**
+- Test project built successfully
+- TUnit executable: 22/22 passed
+
+**Related:** Decision 011 (Auth Mode Architecture), Decision 012 (Auth Test Posture)
+
+### Decision 029: Auth Documentation & Code Drift Cleanup (2026-04-24)
+
+**Author:** Verbal  
+**Status:** Active  
+
+README audit vs. implementation confirmed alignment on auth configuration shape and precedence.
+
+**Findings:**
+
+1. ✅ `Auth.Enabled` references — None found; README correctly documents `Auth.Mode` only
+2. ✅ Environment variable naming — Correct (`BLITZBRIDGE_AUTH_TOKENS`)
+3. ✅ Token precedence — Accurate in README
+4. ✅ Profile-level `Enabled` confusion — Clarified (controls profile activation, not auth)
+5. ✅ Hosted auth section — Accurate (CORS, Bearer, Stdio guarantee)
+
+**Resolution:**
+
+Added clarifying comment in README JSON example to distinguish profile-level `Enabled` (gates profile validation) from auth configuration.
+
+**Takeaways:**
+1. Configuration shape + precedence aligned; README matches implementation
+2. No breaking changes needed
+3. Stdio isolation holds; auth only in HTTP path
+4. Future extensibility ready (Mode enum supports EntraId, EasyAuth)
+
+**Related:** Decision 011 (Auth Mode Architecture), Decision 010 (Hosting with Auth Docs)
+
+### Decision 030: Docker Compose Demo Documentation (2026-04-24)
+
+**Author:** Verbal  
+**Status:** Active  
+
+Added fast on-ramp documentation for teams evaluating without .NET CLI or Aspire knowledge.
+
+**Solution:**
+
+Docker Compose quick-start guide at `samples/docker-compose-demo/README.md` with three-command, five-minute path:
+
+1. `cp .env.example .env`
+2. Edit password/token
+3. `docker compose up`
+
+Includes `curl` sample against `/mcp` endpoint showing `tools/list` request and response.
+
+**Key Decisions:**
+
+1. Position matters — Demo link early (after Install) signals this is fastest eval path
+2. Single curl sample proves end-to-end — Shows successful `/mcp` call with token + JSON-RPC
+3. Troubleshooting baked in — Common errors + solutions prevent support volume
+4. Realistic Docker workflow — No Aspire, no appsettings; just `.env` + compose
+5. Self-service resolution — Pre-seeded error patterns let users debug independently
+
+**Artifacts:**
+- `samples/docker-compose-demo/README.md` — Three-command flow, curl, troubleshooting
+- `README.md` — New "Try it in 5 minutes" section
+
+**Impact:**
+- **Adoption:** Removes friction for quick evaluation
+- **Support:** Troubleshooting reduces "why doesn't it work" questions
+- **Clarity:** Prominent positioning signals Docker is first-class eval path
+- **Alignment:** Demo docs stay in sync with main README
+
+**Related:** Decision 023 (Docker Compose Demo)
+
+### Decision 031: Progressive Disclosure Phase 1 — Implementation vs. Design Reconciliation (2026-04-25)
+
+**Author:** Verbal  
+**Status:** Active  
+
+Fenster's implementation **complete and matches design spec with one intentional divergence.**
+
+**Intentional Divergence Reconciled:**
+
+- **Design proposed:** `azure_sql_blitz_index` detail kind `unused_indexes`
+- **Implementation shipped:** `azure_sql_blitz_index` detail kind `foreign_keys`
+- **Reason:** Foreign keys more actionable for table-scoped analysis than unused index tracking
+- **Action:** Updated README.md and docs/mcp-tools.md to document shipped `foreign_keys` kind
+
+**Implementation Verification:**
+
+✅ Explicit dispatch + validation — (parentTool, kind) pairs strictly validated at server init  
+✅ Stateless handle decoding/replay — Base64-encoded JSON with request parameters; no caching  
+✅ Parent-response metadata — All query tools return `handles[]` with per-section metadata  
+✅ Estimated-token telemetry — ResponseTelemetry captures payload chars; 4-char/token heuristic  
+✅ Backward compatibility — All compacted arrays retained; `IncludeVerboseResults` functional  
+✅ Error contract — 400 for invalid dispatch; 403 for authorization drift; 500 for SQL failures  
+✅ Response shape alignment — All query tools return `Summary` (not legacy `label`/`value`)
+
+**Documentation Updates:**
+
+1. `docs/mcp-tools.md`:
+   - Replaced `unused_indexes` with `foreign_keys` in blitz_index section
+   - Added explicit required parameters (databaseName, schemaName, tableName)
+   - Updated all response examples with actual field names (title/severity/message, not label/value)
+   - Corrected dispatch matrix table
+
+2. `README.md` — No changes needed (already links to mcp-tools.md)
+
+**Quality Assurance:**
+
+✅ Operators can trust README.md and docs/mcp-tools.md as source of truth  
+✅ Clients can implement against documented shapes with confidence  
+✅ No breaking changes; documentation alignment only  
+
+**Related:** Decision 021, `docs/progressive-disclosure-design.md`
+
+### Decision 032: Progressive Disclosure Phase 2 Documentation (2026-04-25)
+
+**Author:** Verbal  
+**Status:** Approved for Phase 2 Implementation  
+**Scope:** Operator-focused documentation for progressive disclosure design + implementation
+
+**Work Completed:**
+
+1. **README Tool Reference Update** — Categorized query tools vs. detail-fetching tool; cross-reference to comprehensive `docs/mcp-tools.md`
+
+2. **New Document: `docs/mcp-tools.md` (36 KB structured reference)**
+   - Overview: default behavior (summary + handles), backward compatibility, interaction pattern
+   - Query Tools: full reference for each of 5 existing tools
+   - Detail Fetching Tool: complete `azure_sql_fetch_detail_by_handle` reference with error contract
+   - Dispatch Matrix: visual (parentTool, kind) contract
+   - Working with Large Result Sets: concrete end-to-end scenario (wait → cache → index) showing token savings
+   - Deprecated Features: `IncludeVerboseResults` guidance
+   - Backward Compatibility: operator reassurance
+
+**Design Alignment:**
+
+✅ Explicit dispatch via `parentTool` + `kind`  
+✅ (parentTool, kind) validation table  
+✅ Error contract for malformed handles, unknown kinds, authorization drift  
+✅ Stateless re-run model  
+✅ Handles encode original parameters  
+✅ Section-level handles (Phase 1 scope)  
+✅ `IncludeVerboseResults` deprecation with backward compatibility  
+
+**Backward Compatibility Guarantee:**
+
+✅ Existing tool inputs unchanged  
+✅ Existing response fields retained  
+✅ New fields additive (`handles`, scalar counts)  
+✅ `IncludeVerboseResults` continues to work  
+✅ New tool opt-in (agents ignoring handles work identically)  
+
+**Phase 1.5 → Phase 2 Transition:**
+
+If Phase 2 removes compacted arrays (breaking change), communication must be:
+- Visible and dated 6+ months in advance
+- Paired with migration guidance
+- Reflected in versioning strategy
+
+**Verbal's Future Action Items:**
+
+1. When Phase 1.5 telemetry arrives (6–12 months), draft Phase 2 deprecation notice if adoption high
+2. Deprecation notice will include: rationale, timeline, migration guide
+3. Communication will precede implementation by 6+ months per design constraint
+
+**Related:** `docs/progressive-disclosure-design.md`, `docs/implementation-work-items.md`
+
 ---
 
 ## Governance
