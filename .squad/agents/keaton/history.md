@@ -54,3 +54,16 @@ Team lead agent initialized with day-1 project context.
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/keaton-auth-architecture-review.md`
 - **Next:** Fenster deletes `HttpAuthOptions.cs` and implements auth via `ConfigureAuth` method. Verbal updates README to remove `Auth.Enabled` and fix env var naming. McManus implements integration test suite.
 
+### Session 6: Progressive Disclosure Design — Phase 1 (2026-04-25)
+
+- **Design doc produced** → `docs/progressive-disclosure-design.md` covers problem statement, token economics, tool surface changes, before/after agent flow, backward compat analysis, caching recommendation, telemetry, and open questions
+- **Backward compatibility confirmed** → Adding `handles` array + scalar summaries to existing responses + one new detail tool is fully additive. No fields removed, no inputs changed, no breaking changes in Phase 1.
+- **Server-side caching explicitly rejected** → Memory pressure, cache invalidation on point-in-time diagnostics, stdio restarts, and deployment simplicity all argue against it. All four FRK procs are ≤8 sec — re-run is acceptable.
+- **Telemetry recommendation: ship independently** → `estimated_payload_tokens` (chars/4) histogram on every tool call, using existing `BlitzBridge.Diagnostics` meter. Independent of progressive disclosure feature flag.
+- **One generic detail tool chosen** → `azure_sql_fetch_detail_by_handle` with required `parentTool` + `kind` discriminators. Lower surface growth than 5 per-parent tools.
+- **`IncludeVerboseResults` deprecated, not removed or repurposed** → Same name, same meaning, just discouraged. Phase 2 may remove compacted arrays from default response (breaking change, needs versioning).
+- **Key input artifacts:** Hockney's handle audit (FRK narrowing capabilities), Fenster's response-shape prototype (contracts and IncludeVerboseResults posture)
+- **Eight design decisions recorded** → D1–D8 in design doc; team decision written to inbox
+- **Open questions for Phase 2:** QueryHash exposure, row-level handles, cursor pagination, sp_BlitzLock, handle versioning, agent caching guidance
+- **Next:** Team reviews design doc. Fenster begins Phase 1 implementation after review gate. McManus plans test coverage for detail tool.
+
