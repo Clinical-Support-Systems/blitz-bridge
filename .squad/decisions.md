@@ -391,6 +391,45 @@ Section-level handles are deterministic, derived from normalized request paramet
 
 **Related:** `docs/progressive-disclosure-design.md` (Appendix A), `docs/progressive-disclosure-handle-audit.md`
 
+### Decision 018: Coordinator Directive — Targeted Keaton Revision Only (2026-04-27)
+
+**Author:** Coordinator (via user directive)  
+**Status:** Active  
+**Directive:** Skip full-team review loop; route only Keaton for revision pass on progressive-disclosure-design.md before Phase 2 implementation.
+
+**Rationale:** User (Kori Francis) requested efficient routing: Keaton has deep context from Phase 1 design assembly; five specific review items are targeted and scoped to documentation only; full team review loop can be compressed into one agent pass.
+
+**Related:** `.squad/decisions/inbox/copilot-directive-20260427T111041-0400.md`
+
+### Decision 019: Progressive Disclosure Design Doc Revision — Five Items Addressed (2026-04-27)
+
+**Author:** Keaton (Lead)  
+**Status:** Active  
+**Scope:** Design doc revision; documentation only; no code changes
+
+Keaton completed targeted revision pass on `docs/progressive-disclosure-design.md` addressing five specific user review items before Phase 2 implementation kickoff.
+
+**Five Revisions:**
+
+1. **Token-Economics Reframed** — Added best-case, worst-case, and neutral-case analysis. Progressive disclosure is a **high-variance tradeoff**, not guaranteed win. Worst case: agent that expands all sections realizes ~41% savings but pays transaction overhead; may not outperform minimal-verbosity baseline.
+
+2. **Explicit Dispatch Chosen Over Opaque Handles** — New Section 2.4 documents design tradeoff: explicit dispatch is debuggable (precise error messages, audit trail, server validation) while opaque is pure (client-opaque). Kori's Phase 1 preference for explicit recorded.
+
+3. **Legal `kind` Values Enumeration** — New Section 2.4 table enumerates all valid (parentTool, kind) pairs per tool (4 tools × 1–4 kinds each). Code cannot drift from design; server-side validation must reject unknown combinations with clear error messages.
+
+4. **Hockney's Handle Audit Integrated Into Main Doc** — Section 2.7 now summarizes audit findings (natural row identifiers, server-side narrowing capability per procedure) directly in design doc rather than as separate reference. Elevates audit to first-class design input.
+
+5. **Error Contract Comprehensively Specified** — New Section 2.6 documents all failure modes: malformed handle, malformed payload, unknown parentTool, unknown kind, authorization drift, section expired, SQL failure. Authorization drift mirrors parent tool (403) for consistency and to prevent information leakage.
+
+**Additional Changes:**
+
+- **Phase 2 Roadmap** (Section 9): Additive Phase 1 → Phase 1.5 telemetry → Phase 2 breaking change (versioning). Key constraint: backward-compatibility break must be visible 6+ months in advance (Verbal's responsibility).
+- **Response-size estimate updated** from ~200–400 chars to ~600–800 chars (more realistic for handle objects + metadata). Still negligible (~150–200 tokens).
+
+**Status:** Design doc now ready for team review and implementation gate before Phase 1 coding begins.
+
+**Related:** `docs/progressive-disclosure-design.md`, `.squad/decisions/inbox/keaton-progressive-disclosure-revision.md`
+
 ---
 
 ## Governance

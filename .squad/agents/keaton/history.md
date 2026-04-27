@@ -69,3 +69,18 @@ Team lead agent initialized with day-1 project context.
 - **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-keaton.md`
 - **Next:** Team reviews design doc. Fenster begins Phase 1 implementation after review gate. McManus plans test coverage for detail tool.
 
+### Session 8: Progressive Disclosure Design Doc Revision — Five-Item Focus (2026-04-27)
+
+- **Token-economics reframed** → Added best-case, worst-case, and neutral-case analysis. Progressive disclosure is a **high-variance tradeoff**, not always-win. Worst case: agent that expands most sections pays ~41% savings but with transaction cost overhead.
+- **Explicit dispatch chosen over opaque handles** → Section 2.4 new, documents tradeoff: explicit is debuggable (precise error messages, audit trail), opaque is pure. Kori's preference (explicit) for Phase 1 recorded as design choice.
+- **Legal `kind` values table added** → Section 2.4 enumerates all valid (parentTool, kind) pairs per tool. Code cannot drift from design. Validation must reject unknown combinations with clear error messages.
+- **Hockney's handle audit integrated into main doc** → Section 2.7 now summarizes audit findings (natural row identifiers, server-side narrowing capability per procedure) rather than sidecar reference.
+- **Error contract specified comprehensively** → Section 2.6 documents all failure modes: malformed handle, malformed payload, unknown parentTool, unknown kind, authorization drift, section expired, SQL failure. Authorization drift mirrors parent tool behavior (403).
+- **Phase 2 roadmap added** → Section 9 outlines additive Phase 1 → Phase 1.5 telemetry decision → Phase 2 breaking change (with versioning). Key constraint: backward-compatibility break must be visible 6+ months in advance (Verbal's responsibility).
+- **Response-size estimate revised** → Updated from ~200–400 chars to ~600–800 chars (more realistic for handle objects + metadata). Still negligible (~150–200 tokens).
+- **All five items addressed before Phase 2 kickoff** → Design doc now ready for team review and implementation gate.
+- **Decision note written** → `.squad/decisions/inbox/keaton-progressive-disclosure-revision.md` documents all five revisions and next steps.
+- **Decisions consolidated** → Decision 019 written to `decisions.md` with full revision summary. Inbox file merged and will be deleted.
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-15-29Z-keaton.md`
+- **Next:** Team reviews revised design. Fenster begins Phase 1 implementation.
+
