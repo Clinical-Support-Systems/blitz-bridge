@@ -64,6 +64,10 @@ azd env new
 azd up
 ```
 
+Or one-click via ARM template (Azure portal):
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FClinical-Support-Systems%2Fblitz-bridge%2Fmain%2Finfra%2Fmain.json)
+
 Deployment guide: `docs/deployment-azure.md`.
 
 ## Configure
