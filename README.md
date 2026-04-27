@@ -115,11 +115,21 @@ Start with `examples/client-configs/`:
 
 ## Tool surface
 
-- `azure_sql_target_capabilities`
-- `azure_sql_blitz_cache`
-- `azure_sql_blitz_index`
-- `azure_sql_health_check`
-- `azure_sql_current_incident`
+### Query tools
+
+- `azure_sql_target_capabilities` — list profiles and allowed procedures
+- `azure_sql_health_check` — run sp_Blitz to diagnose database health issues
+- `azure_sql_blitz_cache` — run sp_BlitzCache for query plan analysis and cached-query performance
+- `azure_sql_blitz_index` — run sp_BlitzIndex for index recommendations and table structure review
+- `azure_sql_current_incident` — run sp_BlitzFirst to surface immediate blocking, waits, and active problems
+
+### Detail fetching (progressive disclosure)
+
+- `azure_sql_fetch_detail_by_handle` — fetch expanded sections from query tools without re-querying the entire result set
+
+**Default behavior:** All query tools return a summary plus handles to expandable sections. Agents that need full detail can drill down on demand; agents that only need summaries avoid re-running expensive procedures.
+
+See `docs/mcp-tools.md` for interaction patterns and when to use progressive disclosure.
 
 ## Security and responsibility boundaries
 

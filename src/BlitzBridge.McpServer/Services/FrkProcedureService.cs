@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.RegularExpressions;
 
 using BlitzBridge.McpServer.Models.ToolRequests;
@@ -12,6 +13,21 @@ namespace BlitzBridge.McpServer.Services;
 public sealed partial class FrkProcedureService
 {
     private static readonly string[] AllowedSortOrders = ["cpu", "duration", "executions", "reads"];
+    private static readonly string[] ParentTools =
+    [
+        "azure_sql_health_check",
+        "azure_sql_blitz_cache",
+        "azure_sql_blitz_index",
+        "azure_sql_current_incident"
+    ];
+
+    private static readonly Dictionary<string, string[]> ValidKindsByParentTool = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["azure_sql_health_check"] = ["findings"],
+        ["azure_sql_blitz_cache"] = ["queries", "warning_glossary", "ai_prompt", "ai_advice"],
+        ["azure_sql_blitz_index"] = ["existing_indexes", "missing_indexes", "column_data_types", "foreign_keys", "ai_prompt", "ai_advice"],
+        ["azure_sql_current_incident"] = ["waits", "findings"]
+    };
 
     private readonly ISqlExecutionService _sqlExecutionService;
     private readonly FrkResultMapper _mapper;
@@ -35,14 +51,238 @@ public sealed partial class FrkProcedureService
     /// <param name="request">Tool request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Mapped health check response.</returns>
-    public async Task<object> RunHealthCheckAsync(
+    public async Task<AzureSqlHealthCheckResponse> RunHealthCheckAsync(
         AzureSqlHealthCheckRequest request,
         CancellationToken cancellationToken = default)
     {
-        ValidateTarget(request.Target);
-        ValidateMaxRows(request.MaxRows);
-        ValidateOptionalIdentifier(request.DatabaseName, nameof(request.DatabaseName));
+        ValidateHealthCheckRequest(request);
+        var dataSet = await ExecuteHealthCheckAsync(request, cancellationToken);
+        return _mapper.MapHealthCheck(request, dataSet);
+    }
 
+    /// <summary>
+    /// Runs <c>sp_BlitzCache</c> and maps the result.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped BlitzCache response.</returns>
+    public async Task<AzureSqlBlitzCacheResponse> RunBlitzCacheAsync(
+        AzureSqlBlitzCacheRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBlitzCacheRequest(request);
+        var dataSet = await ExecuteBlitzCacheAsync(request, cancellationToken);
+        return _mapper.MapBlitzCache(request, dataSet);
+    }
+
+    /// <summary>
+    /// Runs <c>sp_BlitzIndex</c> for a single table and maps the result.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped BlitzIndex response.</returns>
+    public async Task<AzureSqlBlitzIndexResponse> RunBlitzIndexAsync(
+        AzureSqlBlitzIndexRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBlitzIndexRequest(request);
+        var dataSet = await ExecuteBlitzIndexAsync(request, cancellationToken);
+        return _mapper.MapBlitzIndex(request, dataSet);
+    }
+
+    /// <summary>
+    /// Runs <c>sp_BlitzFirst</c> and maps the result to an incident snapshot payload.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped current-incident response.</returns>
+    public async Task<AzureSqlCurrentIncidentResponse> RunCurrentIncidentAsync(
+        AzureSqlCurrentIncidentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateCurrentIncidentRequest(request);
+        var dataSet = await ExecuteCurrentIncidentAsync(request, cancellationToken);
+        return _mapper.MapCurrentIncident(request, dataSet);
+    }
+
+    /// <summary>
+    /// Retrieves target capability metadata and maps it for tool output.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped target capabilities response.</returns>
+    public async Task<AzureSqlTargetCapabilitiesResponse> RunTargetCapabilitiesAsync(
+        AzureSqlTargetCapabilitiesRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTarget(request.Target);
+
+        var capabilities = await _sqlExecutionService.GetTargetCapabilitiesAsync(
+            request.Target,
+            cancellationToken);
+
+        return _mapper.MapTargetCapabilities(capabilities);
+    }
+
+    /// <summary>
+    /// Re-runs the underlying FRK procedure and returns expanded section detail.
+    /// </summary>
+    /// <param name="request">Detail-fetch request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Expanded detail payload.</returns>
+    public async Task<AzureSqlFetchDetailByHandleResponse> FetchDetailByHandleAsync(
+        AzureSqlFetchDetailByHandleRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateDetailFetchRequest(request);
+
+        var handle = ProgressiveDisclosureHandleCodec.Decode(request.Handle);
+        ValidateHandleMatchesRequest(request, handle);
+
+        try
+        {
+            return handle.ParentTool switch
+            {
+                "azure_sql_health_check" => await FetchHealthCheckDetailAsync(request.Handle, handle, request.MaxRows, cancellationToken),
+                "azure_sql_blitz_cache" => await FetchBlitzCacheDetailAsync(request.Handle, handle, request.MaxRows, cancellationToken),
+                "azure_sql_blitz_index" => await FetchBlitzIndexDetailAsync(request.Handle, handle, request.MaxRows, cancellationToken),
+                "azure_sql_current_incident" => await FetchCurrentIncidentDetailAsync(request.Handle, handle, request.MaxRows, cancellationToken),
+                _ => throw CreateUnknownParentToolException(handle.ParentTool)
+            };
+        }
+        catch (ProgressiveDisclosureException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException ex) when (IsAccessDeniedFailure(ex))
+        {
+            throw new ProgressiveDisclosureException(
+                "access_denied",
+                $"Access to target '{handle.Target}' is not available. This may indicate the profile was disabled or your authorization has changed since the summary call.",
+                403,
+                ex);
+        }
+        catch (SqlException ex)
+        {
+            throw new ProgressiveDisclosureException(
+                "sql_execution_error",
+                $"Failed to execute detail request: {ex.Message}",
+                500,
+                ex);
+        }
+        catch (TimeoutException ex)
+        {
+            throw new ProgressiveDisclosureException(
+                "sql_execution_error",
+                $"Failed to execute detail request: {ex.Message}",
+                504,
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Gets the configured default AI mode for a target profile.
+    /// </summary>
+    /// <param name="target">Target profile name.</param>
+    /// <returns>Configured AI mode.</returns>
+    public int GetConfiguredAiMode(string target)
+    {
+        ValidateTarget(target);
+        return _sqlExecutionService.GetConfiguredAiMode(target);
+    }
+
+    private async Task<AzureSqlFetchDetailByHandleResponse> FetchHealthCheckDetailAsync(
+        string requestHandle,
+        ProgressiveDisclosureHandlePayload handle,
+        int maxRows,
+        CancellationToken cancellationToken)
+    {
+        var request = new AzureSqlHealthCheckRequest
+        {
+            Target = handle.Target,
+            DatabaseName = handle.DatabaseName,
+            MinimumPriority = handle.MinimumPriority,
+            ExpertMode = handle.ExpertMode ?? false,
+            MaxRows = maxRows
+        };
+
+        ValidateHealthCheckRequest(request);
+        var dataSet = await ExecuteHealthCheckAsync(request, cancellationToken);
+        return _mapper.MapHealthCheckDetail(handle, request.MaxRows, requestHandle, dataSet);
+    }
+
+    private async Task<AzureSqlFetchDetailByHandleResponse> FetchBlitzCacheDetailAsync(
+        string requestHandle,
+        ProgressiveDisclosureHandlePayload handle,
+        int maxRows,
+        CancellationToken cancellationToken)
+    {
+        var request = new AzureSqlBlitzCacheRequest
+        {
+            Target = handle.Target,
+            DatabaseName = handle.DatabaseName,
+            SortOrder = handle.SortOrder ?? "cpu",
+            Top = handle.Top ?? 10,
+            ExpertMode = handle.ExpertMode ?? false,
+            AiMode = handle.AiMode ?? GetConfiguredAiMode(handle.Target),
+            AiPromptConfigTable = handle.AiPromptConfigTable,
+            AiPromptName = handle.AiPromptName,
+            MaxRows = maxRows
+        };
+
+        ValidateBlitzCacheRequest(request);
+        var dataSet = await ExecuteBlitzCacheAsync(request, cancellationToken);
+        return _mapper.MapBlitzCacheDetail(handle, request.MaxRows, requestHandle, dataSet);
+    }
+
+    private async Task<AzureSqlFetchDetailByHandleResponse> FetchBlitzIndexDetailAsync(
+        string requestHandle,
+        ProgressiveDisclosureHandlePayload handle,
+        int maxRows,
+        CancellationToken cancellationToken)
+    {
+        var request = new AzureSqlBlitzIndexRequest
+        {
+            Target = handle.Target,
+            DatabaseName = handle.DatabaseName ?? string.Empty,
+            SchemaName = handle.SchemaName ?? "dbo",
+            TableName = handle.TableName ?? string.Empty,
+            Mode = handle.Mode ?? 0,
+            ThresholdMb = handle.ThresholdMb ?? 250,
+            ExpertMode = handle.ExpertMode ?? false,
+            AiMode = handle.AiMode ?? GetConfiguredAiMode(handle.Target),
+            AiPromptConfigTable = handle.AiPromptConfigTable,
+            AiPromptName = handle.AiPromptName,
+            MaxRows = maxRows
+        };
+
+        ValidateBlitzIndexRequest(request);
+        var dataSet = await ExecuteBlitzIndexAsync(request, cancellationToken);
+        return _mapper.MapBlitzIndexDetail(handle, request.MaxRows, requestHandle, dataSet);
+    }
+
+    private async Task<AzureSqlFetchDetailByHandleResponse> FetchCurrentIncidentDetailAsync(
+        string requestHandle,
+        ProgressiveDisclosureHandlePayload handle,
+        int maxRows,
+        CancellationToken cancellationToken)
+    {
+        var request = new AzureSqlCurrentIncidentRequest
+        {
+            Target = handle.Target,
+            ExpertMode = handle.ExpertMode ?? false,
+            MaxRows = maxRows
+        };
+
+        ValidateCurrentIncidentRequest(request);
+        var dataSet = await ExecuteCurrentIncidentAsync(request, cancellationToken);
+        return _mapper.MapCurrentIncidentDetail(handle, request.MaxRows, requestHandle, dataSet);
+    }
+
+    private async Task<DataSet> ExecuteHealthCheckAsync(
+        AzureSqlHealthCheckRequest request,
+        CancellationToken cancellationToken)
+    {
         var parameters = new List<SqlParameter>();
 
         if (!string.IsNullOrWhiteSpace(request.DatabaseName))
@@ -60,35 +300,18 @@ public sealed partial class FrkProcedureService
             parameters.Add(new SqlParameter("@ExpertMode", 1));
         }
 
-        var dataSet = await _sqlExecutionService.ExecuteStoredProcedureAsync(
+        return await _sqlExecutionService.ExecuteStoredProcedureAsync(
             request.Target,
             "sp_Blitz",
             request.DatabaseName,
             parameters,
             cancellationToken);
-
-        return _mapper.MapHealthCheck(request, dataSet);
     }
 
-    /// <summary>
-    /// Runs <c>sp_BlitzCache</c> and maps the result.
-    /// </summary>
-    /// <param name="request">Tool request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Mapped BlitzCache response.</returns>
-    public async Task<AzureSqlBlitzCacheResponse> RunBlitzCacheAsync(
+    private async Task<DataSet> ExecuteBlitzCacheAsync(
         AzureSqlBlitzCacheRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        ValidateTarget(request.Target);
-        ValidateSortOrder(request.SortOrder);
-        ValidateTop(request.Top);
-        ValidateMaxRows(request.MaxRows);
-        ValidateAiMode(request.AiMode);
-        ValidateOptionalIdentifier(request.DatabaseName, nameof(request.DatabaseName));
-        ValidateOptionalQualifiedName(request.AiPromptConfigTable, nameof(request.AiPromptConfigTable));
-        ValidateOptionalIdentifier(request.AiPromptName, nameof(request.AiPromptName));
-
         var parameters = new List<SqlParameter>
         {
             new("@Top", request.Top),
@@ -120,36 +343,18 @@ public sealed partial class FrkProcedureService
             parameters.Add(new SqlParameter("@AIPrompt", request.AiPromptName));
         }
 
-        var dataSet = await _sqlExecutionService.ExecuteStoredProcedureAsync(
+        return await _sqlExecutionService.ExecuteStoredProcedureAsync(
             request.Target,
             "sp_BlitzCache",
             request.DatabaseName,
             parameters,
             cancellationToken);
-
-        return _mapper.MapBlitzCache(request, dataSet);
     }
 
-    /// <summary>
-    /// Runs <c>sp_BlitzIndex</c> for a single table and maps the result.
-    /// </summary>
-    /// <param name="request">Tool request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Mapped BlitzIndex response.</returns>
-    public async Task<AzureSqlBlitzIndexResponse> RunBlitzIndexAsync(
+    private async Task<DataSet> ExecuteBlitzIndexAsync(
         AzureSqlBlitzIndexRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        ValidateTarget(request.Target);
-        ValidateRequiredIdentifier(request.DatabaseName, nameof(request.DatabaseName));
-        ValidateRequiredIdentifier(request.SchemaName, nameof(request.SchemaName));
-        ValidateRequiredIdentifier(request.TableName, nameof(request.TableName));
-        ValidateThresholdMb(request.ThresholdMb);
-        ValidateMaxRows(request.MaxRows);
-        ValidateAiMode(request.AiMode);
-        ValidateOptionalQualifiedName(request.AiPromptConfigTable, nameof(request.AiPromptConfigTable));
-        ValidateOptionalIdentifier(request.AiPromptName, nameof(request.AiPromptName));
-
         var parameters = new List<SqlParameter>
         {
             new("@DatabaseName", request.DatabaseName),
@@ -179,25 +384,66 @@ public sealed partial class FrkProcedureService
             parameters.Add(new SqlParameter("@AIPrompt", request.AiPromptName));
         }
 
-        var dataSet = await _sqlExecutionService.ExecuteStoredProcedureAsync(
+        return await _sqlExecutionService.ExecuteStoredProcedureAsync(
             request.Target,
             "sp_BlitzIndex",
             request.DatabaseName,
             parameters,
             cancellationToken);
-
-        return _mapper.MapBlitzIndex(request, dataSet);
     }
 
-    /// <summary>
-    /// Runs <c>sp_BlitzFirst</c> and maps the result to an incident snapshot payload.
-    /// </summary>
-    /// <param name="request">Tool request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Mapped current-incident response.</returns>
-    public async Task<object> RunCurrentIncidentAsync(
+    private async Task<DataSet> ExecuteCurrentIncidentAsync(
         AzureSqlCurrentIncidentRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
+    {
+        var parameters = new List<SqlParameter>();
+
+        if (request.ExpertMode)
+        {
+            parameters.Add(new SqlParameter("@ExpertMode", 1));
+        }
+
+        return await _sqlExecutionService.ExecuteStoredProcedureAsync(
+            request.Target,
+            "sp_BlitzFirst",
+            null,
+            parameters,
+            cancellationToken);
+    }
+
+    private static void ValidateHealthCheckRequest(AzureSqlHealthCheckRequest request)
+    {
+        ValidateTarget(request.Target);
+        ValidateMaxRows(request.MaxRows);
+        ValidateOptionalIdentifier(request.DatabaseName, nameof(request.DatabaseName));
+    }
+
+    private static void ValidateBlitzCacheRequest(AzureSqlBlitzCacheRequest request)
+    {
+        ValidateTarget(request.Target);
+        ValidateSortOrder(request.SortOrder);
+        ValidateTop(request.Top);
+        ValidateMaxRows(request.MaxRows);
+        ValidateAiMode(request.AiMode);
+        ValidateOptionalIdentifier(request.DatabaseName, nameof(request.DatabaseName));
+        ValidateOptionalQualifiedName(request.AiPromptConfigTable, nameof(request.AiPromptConfigTable));
+        ValidateOptionalIdentifier(request.AiPromptName, nameof(request.AiPromptName));
+    }
+
+    private static void ValidateBlitzIndexRequest(AzureSqlBlitzIndexRequest request)
+    {
+        ValidateTarget(request.Target);
+        ValidateRequiredIdentifier(request.DatabaseName, nameof(request.DatabaseName));
+        ValidateRequiredIdentifier(request.SchemaName, nameof(request.SchemaName));
+        ValidateRequiredIdentifier(request.TableName, nameof(request.TableName));
+        ValidateThresholdMb(request.ThresholdMb);
+        ValidateMaxRows(request.MaxRows);
+        ValidateAiMode(request.AiMode);
+        ValidateOptionalQualifiedName(request.AiPromptConfigTable, nameof(request.AiPromptConfigTable));
+        ValidateOptionalIdentifier(request.AiPromptName, nameof(request.AiPromptName));
+    }
+
+    private static void ValidateCurrentIncidentRequest(AzureSqlCurrentIncidentRequest request)
     {
         ValidateTarget(request.Target);
         ValidateMaxRows(request.MaxRows);
@@ -207,53 +453,87 @@ public sealed partial class FrkProcedureService
             throw new ArgumentException(
                 "sp_BlitzFirst runs in the target's current database context and does not support DatabaseName filtering in this server.");
         }
-
-        var parameters = new List<SqlParameter>();
-
-        if (request.ExpertMode)
-        {
-            parameters.Add(new SqlParameter("@ExpertMode", 1));
-        }
-
-        var dataSet = await _sqlExecutionService.ExecuteStoredProcedureAsync(
-            request.Target,
-            "sp_BlitzFirst",
-            null,
-            parameters,
-            cancellationToken);
-
-        return _mapper.MapCurrentIncident(request, dataSet);
     }
 
-    /// <summary>
-    /// Retrieves target capability metadata and maps it for tool output.
-    /// </summary>
-    /// <param name="request">Tool request.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Mapped target capabilities response.</returns>
-    public async Task<AzureSqlTargetCapabilitiesResponse> RunTargetCapabilitiesAsync(
-        AzureSqlTargetCapabilitiesRequest request,
-        CancellationToken cancellationToken = default)
+    private static void ValidateDetailFetchRequest(AzureSqlFetchDetailByHandleRequest request)
     {
         ValidateTarget(request.Target);
-
-        var capabilities = await _sqlExecutionService.GetTargetCapabilitiesAsync(
-            request.Target,
-            cancellationToken);
-
-        return _mapper.MapTargetCapabilities(capabilities);
+        ValidateMaxRows(request.MaxRows);
+        ValidateRequiredDetailDispatchValue(request.ParentTool, nameof(request.ParentTool));
+        ValidateRequiredDetailDispatchValue(request.Kind, nameof(request.Kind));
+        ValidateRequiredDetailDispatchValue(request.Handle, nameof(request.Handle));
+        ValidateParentTool(request.ParentTool);
+        ValidateKind(request.ParentTool, request.Kind);
     }
 
-    /// <summary>
-    /// Gets the configured default AI mode for a target profile.
-    /// </summary>
-    /// <param name="target">Target profile name.</param>
-    /// <returns>Configured AI mode.</returns>
-    public int GetConfiguredAiMode(string target)
+    private static void ValidateRequiredDetailDispatchValue(string value, string parameterName)
     {
-        ValidateTarget(target);
-        return _sqlExecutionService.GetConfiguredAiMode(target);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ProgressiveDisclosureException(
+                "invalid_request",
+                $"{parameterName} is required.",
+                400);
+        }
     }
+
+    private static void ValidateParentTool(string parentTool)
+    {
+        if (ParentTools.Contains(parentTool, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw CreateUnknownParentToolException(parentTool);
+    }
+
+    private static void ValidateKind(string parentTool, string kind)
+    {
+        if (ValidKindsByParentTool.TryGetValue(parentTool, out var kinds)
+            && kinds.Contains(kind, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw CreateUnknownKindException(parentTool, kind);
+    }
+
+    private static void ValidateHandleMatchesRequest(
+        AzureSqlFetchDetailByHandleRequest request,
+        ProgressiveDisclosureHandlePayload handle)
+    {
+        if (!string.Equals(request.Target, handle.Target, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(request.ParentTool, handle.ParentTool, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(request.Kind, handle.Kind, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ProgressiveDisclosureException(
+                "malformed_handle",
+                "Handle dispatch metadata does not match the requested target, parentTool, and kind. Re-run the parent tool and use the returned handle unchanged.",
+                400);
+        }
+    }
+
+    private static ProgressiveDisclosureException CreateUnknownParentToolException(string parentTool)
+        => new(
+            "unknown_parent_tool",
+            $"Unknown parentTool: '{parentTool}'. Valid tools: {string.Join(", ", ParentTools)}",
+            400);
+
+    private static ProgressiveDisclosureException CreateUnknownKindException(string parentTool, string kind)
+    {
+        var validKinds = ValidKindsByParentTool.TryGetValue(parentTool, out var kinds)
+            ? kinds
+            : [];
+
+        return new ProgressiveDisclosureException(
+            "unknown_kind",
+            $"Unknown kind '{kind}' for parentTool '{parentTool}'. Valid kinds: {string.Join(", ", validKinds)}",
+            400);
+    }
+
+    private static bool IsAccessDeniedFailure(InvalidOperationException exception)
+        => exception.Message.Contains("Unknown or disabled target", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("not allowed", StringComparison.OrdinalIgnoreCase);
 
     private static void ValidateTarget(string target)
     {

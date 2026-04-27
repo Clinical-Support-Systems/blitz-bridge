@@ -38,9 +38,44 @@ public sealed class AzureSqlBlitzIndexResponse
     public int AiMode { get; set; }
 
     /// <summary>
+    /// Total compact existing index rows returned.
+    /// </summary>
+    public int ExistingIndexCount { get; set; }
+
+    /// <summary>
+    /// Total compact missing index rows returned.
+    /// </summary>
+    public int MissingIndexCount { get; set; }
+
+    /// <summary>
+    /// Total compact column data type rows returned.
+    /// </summary>
+    public int ColumnDataTypeCount { get; set; }
+
+    /// <summary>
+    /// Total compact foreign key rows returned.
+    /// </summary>
+    public int ForeignKeyCount { get; set; }
+
+    /// <summary>
+    /// Indicates whether an AI prompt was returned.
+    /// </summary>
+    public bool HasAiPrompt { get; set; }
+
+    /// <summary>
+    /// Indicates whether AI advice was returned.
+    /// </summary>
+    public bool HasAiAdvice { get; set; }
+
+    /// <summary>
     /// Compact summary entries.
     /// </summary>
     public List<DiagnosticSummary> Summary { get; set; } = [];
+
+    /// <summary>
+    /// Section-level detail handles.
+    /// </summary>
+    public List<AzureSqlDetailHandle> Handles { get; set; } = [];
 
     /// <summary>
     /// Compacted existing index rows.

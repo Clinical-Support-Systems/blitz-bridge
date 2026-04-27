@@ -14,7 +14,9 @@ Blitz Bridge wraps four FRK procedures that return large, multi-section result s
 
 **The cost model is simple:** every character we return costs tokens. At ~4 characters per token (the standard GPT/Claude heuristic), a 20 KB response burns ~5,000 tokens on a single tool call. Agents that chain diagnostics — health check → cache analysis → index review — can consume 15–25K tokens on raw diagnostic data before the model has room to reason about it.
 
-### Token-economics rationale
+### Token-economics rationale: Progressive disclosure is a high-variance tradeoff, not an always-win
+
+The benefit of progressive disclosure is **highly dependent on agent workflow.** It is not a universal improvement.
 
 | Tool | Typical compacted payload (chars) | Estimated tokens (chars/4) | With verbose | Estimated tokens (verbose) |
 |------|-----------------------------------|---------------------------|--------------|---------------------------|
@@ -24,12 +26,37 @@ Blitz Bridge wraps four FRK procedures that return large, multi-section result s
 | `azure_sql_current_incident` | ~6,000 | ~1,500 | ~24,000 | ~6,000 |
 | **3-tool chain (typical)** | **~30,000** | **~7,500** | **~120,000** | **~30,000** |
 
-The progressive disclosure pattern splits each response into a compact summary (targeting <2,000 chars / ~500 tokens) plus opaque handles that the agent can expand on demand. An agent that only needs the BlitzCache warning glossary pays for ~500 summary tokens + ~800 glossary tokens instead of ~3,000 for the full payload. Over a multi-step diagnostic session, this can save 60–80% of diagnostic token spend.
+**Best case (agent uses selective drill-down):** The progressive disclosure pattern splits each response into a compact summary (targeting <2,000 chars / ~500 tokens) plus opaque handles that the agent can expand on demand. An agent that only needs the BlitzCache warning glossary pays for ~500 summary tokens + ~800 glossary tokens = **~1,300 tokens instead of ~3,000 for the full payload.** Over a multi-step diagnostic session, this can save 60–80% of diagnostic token spend.
+
+**Worst case (agent needs most sections, so requests multiple drill-downs):**  
+Suppose an agent running azure_sql_health_check summary (~500 tokens) decides to drill down into findings, then switches to azure_sql_blitz_cache and requests queries (~1,200 tokens), warning glossary (~500 tokens), and ai_prompt (~1,000 tokens). Then azure_sql_blitz_index, requesting existing_indexes (~800 tokens) and column_data_types (~400 tokens). 
+
+Total: summary + 5 drill-downs = 500 + 1200 + 500 + 1000 + 800 + 400 = **~4,400 tokens**.
+
+Compare this to the "typical 3-tool" baseline of **~7,500 tokens** — still a modest win (41% savings). However, if the agent had simply called each tool with `IncludeVerboseResults=false` (our current default), it would have been ~3,000 tokens anyway. **In this worst case, progressive disclosure adds ~1,400 tokens over a minimally-verbose run** if the agent makes multiple requests to expand sections.
+
+**Key insight:** Progressive disclosure saves tokens only when the agent is selective about what it expands. If an agent expands most or all sections, it's paying transaction costs (multiple MCP calls, repeated request/response framing) for marginal savings. Agents that rarely expand save the most; agents that expand everything save the least or may even regress.
+
+**When progressive disclosure wins:**
+1. Agents with constrained context windows (e.g., small model, long conversation history, large system prompt).
+2. Agents that naturally make diagnostic decisions based on summaries before digging into details.
+3. Multi-tool chains where filtering is possible after reading summaries (e.g., "I don't need index analysis for this database, skip it").
+
+**When it's neutral or loses:**
+1. Agents that always expand all sections (many details-first diagnostic agents behave this way).
+2. Single-tool calls where the summary-only response is not meaningfully smaller than the compacted version.
+3. Single-round diagnostic calls where the agent sees one response and reasons in a single shot.
+
+**The Phase 1 tradeoff:** We are accepting the complexity of two response shapes (with-handles and without, for backward compatibility) and a new detail-fetching tool in exchange for *optional* token savings that **some workflows will realize and others will not.** This is a justified tradeoff because:
+- The complexity is localized to the detail tool; existing tools' input contracts don't change.
+- Backward compatibility means agents that ignore handles work identically to today.
+- The telemetry (estimated_payload_tokens) gives us data to measure the actual tradeoff in production.
 
 **This matters because:**
-1. Token budgets are finite — agents that exhaust context on diagnostics lose capacity for reasoning and recommendation.
+1. Token budgets are finite — agents that *do* benefit from selective disclosure regain capacity for reasoning and recommendation.
 2. Cost scales linearly — every unnecessary token costs money on hosted LLM APIs.
 3. Latency compounds — larger payloads increase serialization time, network transfer, and model processing time.
+4. It's not always an improvement — we must be clear about the conditions under which it helps.
 
 ---
 
@@ -78,13 +105,70 @@ One new tool: **`azure_sql_fetch_detail_by_handle`**
 **Why one generic tool, not five per-parent tools:**
 - Lower tool-surface growth (1 new tool vs. 5)
 - One interaction pattern for all diagnostics: "run summary, then fetch handle"
-- `parentTool` + `kind` are required and strictly validated — this is explicit dispatch, not magic
+- `parentTool` + `kind` are required and strictly validated — **this is explicit dispatch, not opaque magic**. The server validates that each `kind` is a legal value for the given `parentTool`.
 
-### 2.4 `IncludeVerboseResults` deprecation
+### 2.4 Explicit Dispatch vs. Opaque Handles — Design Choice
+
+**Decision:** Use **explicit dispatch** with strict `parentTool` + `kind` validation, not opaque handles that blur the contract.
+
+**Rationale:**
+- **Explicit is debuggable:** When a detail fetch fails (e.g., unknown `kind` for that parent), the error message can say exactly what went wrong instead of "handle not found."
+- **Server-side validation:** The service maintains a whitelist of legal `(parentTool, kind)` pairs. Requests with invalid combinations are rejected early with clear error messages.
+- **Audit trail:** Logs and traces can record which `parentTool` and `kind` were requested, making it easier to spot misconfiguration or client bugs.
+- **Tradeoff:** Handles are still opaque from the client's perspective (clients should not parse them), but the dispatch parameters are transparent. This is a deliberate choice to favor debuggability over purity.
+
+**Legal `kind` values per `parentTool`:**
+
+| `parentTool` | Legal `kind` values | Response type | Notes |
+|---|---|---|---|
+| `azure_sql_health_check` | `findings` | Items array | Drill-down to individual findings with full details |
+| `azure_sql_blitz_cache` | `queries`, `warning_glossary`, `ai_prompt`, `ai_advice` | Items array for queries/glossary; text for ai_* | Queries = top cached plans; glossary = warning reference; ai_* = generated text |
+| `azure_sql_blitz_index` | `existing_indexes`, `missing_indexes`, `column_data_types`, `foreign_keys`, `ai_prompt`, `ai_advice` | Items array for data; text for ai_* | Separate detail response per index-related section |
+| `azure_sql_current_incident` | `waits`, `findings` | Items array | Drill-down to wait types and active findings |
+
+An unknown `parentTool` (e.g., `azure_sql_unknown_tool`) returns a 400-level error with message "Unknown parentTool: azure_sql_unknown_tool."  
+An unknown `kind` for a known `parentTool` (e.g., `parentTool=azure_sql_blitz_cache, kind=unknown_section`) returns a 400-level error with message "Unknown kind 'unknown_section' for parentTool 'azure_sql_blitz_cache'. Valid kinds: queries, warning_glossary, ai_prompt, ai_advice."
+
+### 2.5 `IncludeVerboseResults` deprecation
 
 - The flag continues to work in Phase 1. Setting it to `true` still returns `resultSets[]` with raw FRK data.
 - Tool descriptions are updated to mark it deprecated with guidance to use `azure_sql_fetch_detail_by_handle` instead.
 - The flag is **not repurposed** — same name, same meaning, just discouraged. Repurposing creates incident confusion.
+
+### 2.6 Detail Tool Error Contract
+
+The `azure_sql_fetch_detail_by_handle` tool must specify error handling for the following failure modes:
+
+| Failure Mode | HTTP Status | Error Response | Root Cause | Client Action |
+|---|---|---|---|---|
+| Malformed handle (base64 decode fails, missing fields) | 400 | `{"error": "malformed_handle", "message": "Handle must be a valid base64-encoded JSON object with fields: version, parentTool, kind, target, ..."}` | Client sent a corrupted or manually-crafted handle | Re-fetch the summary from the parent tool to get a valid handle |
+| Malformed explicit dispatch payload (unknown type for maxRows, invalid JSON) | 400 | `{"error": "invalid_request", "message": "maxRows must be a positive integer, got: abc"}` | Client sent invalid JSON or type mismatch in request body | Fix the request and retry |
+| Unknown `parentTool` (e.g., `parentTool=azure_sql_unknown_tool`) | 400 | `{"error": "unknown_parent_tool", "message": "Unknown parentTool: 'azure_sql_unknown_tool'. Valid tools: azure_sql_health_check, azure_sql_blitz_cache, azure_sql_blitz_index, azure_sql_current_incident"}` | Client requested a non-existent parent tool | Check the MCP tool listing and use a valid tool name |
+| Unknown `kind` for valid `parentTool` (e.g., `parentTool=azure_sql_blitz_cache, kind=nonexistent`) | 400 | `{"error": "unknown_kind", "message": "Unknown kind 'nonexistent' for parentTool 'azure_sql_blitz_cache'. Valid kinds: queries, warning_glossary, ai_prompt, ai_advice"}` | Client requested a section that doesn't exist for this tool | Consult the design doc or tool documentation for valid kinds |
+| Authorization drift since parent call (e.g., profile was disabled, client lost access) | 403 | `{"error": "access_denied", "message": "Access to target 'prod-east' is not available. This may indicate the profile was disabled or your authorization has changed since the summary call."}` | The profile or client authorization state changed between the summary call and the detail call | Check that the profile still exists and is enabled; re-run the parent tool to verify access, or contact an administrator |
+| Valid handle but detail section has since expired or been garbage-collected (should be extremely rare with stateless design) | 404 | `{"error": "section_not_found", "message": "The requested section is no longer available. This can happen if the handle references parameters that no longer apply (e.g., profile was deleted). Re-run the parent tool to fetch a fresh handle."}` | Handle points to stale request parameters; profile or configuration changed | Re-run the parent tool |
+| SQL execution failure during detail fetch (connection timeout, query timeout, permission denied on SQL side) | 500 or 504 | `{"error": "sql_execution_error", "message": "Failed to execute procedure: Connection timeout after 30 seconds"}` | SQL Server is unreachable, unresponsive, or query exceeded timeout | Retry after a delay; check SQL Server connectivity and query load |
+
+**Authorization drift handling — clarification:**  
+If authorization state has changed since the parent call (e.g., the profile was disabled, or the client's access was revoked), the detail tool should return the same 403-style authorization failure that the parent tool would return. The exact behavior mirrors the parent tool's error contract: if `azure_sql_health_check` would return 403 when called on the target, then `azure_sql_fetch_detail_by_handle` should also return 403. This keeps error modes consistent and prevents leaking information about which tools are available.
+
+### 2.7 Handle Audit and Natural Row Identifiers
+
+Hockney's handle audit (see [Progressive Disclosure Handle Audit](progressive-disclosure-handle-audit.md)) confirms that each FRK procedure has stable natural row identifiers suitable for drill-down:
+
+| Procedure | Primary Handle | Drill-Down Realism | Notes |
+|---|---|---|---|
+| `sp_Blitz` | `(Priority, FindingsGroup, Finding, CheckID)` | 🟡 Partial | CheckID is stable; re-run returns all findings; no server-side filtering by CheckID |
+| `sp_BlitzCache` | `(DatabaseName, QueryHash, StatementStartOffset, StatementEndOffset)` | 🟡 Partial | QueryHash not exposed in current projection; can track by truncated QueryText + metrics |
+| `sp_BlitzIndex` | `(DatabaseName, SchemaName, TableName, IndexName)` | ✅ Full | Server-side narrowing is maximal; required parameters scope to a single table |
+| `sp_BlitzFirst` | `(WaitType)` for waits, `(CheckID)` for findings | 🟡 Partial | No server-side filtering; re-run returns all waits/findings for the target |
+
+**Server-side narrowing verdict:**
+- `sp_BlitzIndex` supports full server-side narrowing to a single table via required parameters.
+- `sp_BlitzCache` supports partial narrowing via `@Top` and `@SortOrder`, but not single-query filtering without client-side post-processing.
+- `sp_Blitz` and `sp_BlitzFirst` support no server-side single-row filtering; re-run returns full result set, and detail tool extracts the requested section in memory.
+
+This does not change Phase 1 implementation — all procedures are acceptably fast for stateless re-run. However, it informs Phase 2 decisions about row-level handles and whether exposing `QueryHash` or similar stable identifiers is needed.
 
 ---
 
@@ -231,7 +315,7 @@ Agent                              BlitzBridge
 
 5. **No response fields are removed or retyped.** This is the critical constraint. If we removed `queries` from `AzureSqlBlitzCacheResponse` in Phase 1, that would break clients. We don't.
 
-**Risk: Response size increases slightly.** Adding `handles` and scalar summaries to existing responses makes them ~200–400 chars larger. This is negligible (<100 tokens) and is offset by the savings when agents actually use progressive disclosure.
+**Risk: Response size increases slightly.** Adding `handles` and scalar summaries to existing responses makes them ~600–800 chars larger (revised from earlier ~200–400 estimate after factoring in handle verbosity and metadata). A handle object with metadata can be 100–150 chars each, and a response may have 3–5 handles, plus scalar summaries and scope metadata. This is negligible (~150–200 tokens) and is offset by the savings when agents actually use progressive disclosure.
 
 **Phase 2 risk (flagged for future).** If Phase 2 removes compacted arrays from the default response (moving them behind handles only), that is a breaking change requiring a version bump or opt-in flag. Phase 1 does not do this.
 
@@ -374,6 +458,94 @@ Should we publish guidance for MCP clients on whether they may cache parent resp
 | D6 | Instrument `estimated_payload_tokens` on every tool call now | Independent of progressive disclosure; provides baseline, anomaly detection, and cost attribution |
 | D7 | Handles are opaque, encode original parameters, server-validated | Stateless design; no cache dependency; handles survive server restarts |
 | D8 | Adding new tools preserves backward compatibility — confirmed | No existing inputs changed, no fields removed, new fields are additive, new tool is opt-in |
+
+---
+
+## 9. Roadmap: From Phase 1 Additive to Single Canonical Shape (Phase 2+)
+
+Phase 1 is intentionally additive: compacted arrays coexist with handles, and clients can ignore handles entirely. This preserves backward compatibility but creates a "double-emit" risk: responses contain both the old shape and the new shape, and teams must maintain both paths indefinitely.
+
+**Transition plan to a single canonical shape:**
+
+1. **Phase 1 (current): Additive dual-path.** Parent tools emit both compacted arrays (for backward compatibility) and section handles (for progressive disclosure). Agents that ignore handles see no behavior change.
+
+2. **Phase 1.5 (6–12 months): Telemetry and decision.** Via `estimated_payload_tokens` histograms and agent behavior data, we measure:
+   - What fraction of agent workflows actually use progressive disclosure?
+   - Do agents expand most sections (suggesting drill-down isn't cost-effective) or selectively expand (suggesting draft-down is valuable)?
+   - Is there a threshold agent type or model size where progressive disclosure becomes essential?
+
+3. **Phase 2 proposal (decision gate): Break compacted arrays into handles only.** If telemetry shows meaningful adoption of progressive disclosure, Phase 2 will move compacted arrays (`queries`, `findings`, etc.) entirely behind handles. The default parent response becomes true summary-only: just metadata, counts, and handles. This is a **breaking change** and requires:
+   - API versioning (e.g., `Accept: application/vnd.blitzbridge.v2+json` header, or a new set of `v2` tools)
+   - OR: an opt-in flag like `compact=false` on parent tool requests, defaulting to `compact=true` for backward compatibility
+   - Migration period: at least 6 months with both shapes available
+   - Clear changelog and deprecation notices to all documented clients
+
+4. **Phase 3+ (Year 2+): Single canonical shape.** Once adoption is high and backward-compatibility burden is justifiable, the old compacted-array shape is removed entirely. Every diagnostic tool response is summary-only with handles; progressive disclosure is the mandatory interaction pattern, not optional.
+
+**Why this phasing matters:**
+- Phase 1 adds complexity (dual paths), but it's temporary and necessary to preserve existing workflows.
+- Phase 1.5 data informs Phase 2's decision — we don't commit to breaking changes without evidence that progressive disclosure is actually used.
+- The transition is gradual: clients have time to migrate, and we don't force a rewrite if agent workflows don't benefit from the new pattern.
+
+**Key constraint:** The decision to break backward compatibility must be made visible, dated, and communicated 6+ months in advance. This is Verbal's responsibility as DevRel lead.
+
+---
+
+## Appendix A. Testability Review (McManus)
+
+**Verdict:** **APPROVE for Phase 1** from a testability standpoint. The summary-plus-handles split does create a few new contract tests, but it does **not** make the suite materially harder to write than the current shape **as long as Phase 1 handles stay section-level and deterministic**. I would **block Phase 2** if handle generation drifts toward cache keys, timestamps, random IDs, or row-level identifiers that are not stable across repeated runs.
+
+### Why Phase 1 remains testable
+
+1. **Existing assertions survive.** Phase 1 keeps the current compacted arrays in place, so today's response-shape tests still work with additive assertions for `handles` and top-level summary scalars.
+2. **Section-level handles are fixture-friendly.** A deterministic FRK stub can return predictable drill-down handles when each handle is derived only from:
+   - handle version,
+   - parent tool,
+   - handle kind,
+   - normalized request parameters already visible on the parent call (`target`, `sortOrder`, `databaseName`, `schemaName`, `tableName`, `top`, `aiMode`, etc.).
+3. **The stateless design helps testing.** Because the doc already rejects server-side caching, tests do not need process affinity, expiry management, or hidden setup between the summary call and the drill-down call.
+
+### D-3 fixture answer: can we make predictable handles?
+
+**Yes — for Phase 1, deterministically.** The fixture can hard-code expected handles for every canned response **if** the implementation treats the handle as a canonical encoding of the request tuple plus section kind, not as a per-execution token.
+
+Concrete examples of what stays deterministic in a fixture:
+
+- `azure_sql_health_check` → one `findings` handle derived from target + normalized priority/database inputs
+- `azure_sql_blitz_cache` → section handles like `queries`, `warning_glossary`, `ai_prompt` derived from target + sort order + top + AI mode
+- `azure_sql_blitz_index` → section handles derived from target + database/schema/table scope
+- `azure_sql_current_incident` → section handles for `waits` and `findings` derived from target + request options only
+
+That means D-3 does **not** need live FRK row identities to make the drill-down contract reproducible.
+
+### What would make tests harder than today
+
+These are the failure modes that would turn this design into a testing tax:
+
+- **Opaque-but-random handles** (GUIDs, nonces, encrypted blobs with per-call entropy)
+- **Cache-backed handles** that expire or depend on server memory
+- **Handles derived from runtime row values** for Phase 1, especially `sp_BlitzFirst` `CheckDate`
+- **Non-canonical input encoding** where omitted/default parameters produce different handles for semantically identical requests
+
+If any of those appear in implementation, the fixture stops being predictable and review should fail.
+
+### Required testability guardrails before implementation
+
+Phase 1 should explicitly require:
+
+1. **Deterministic handle derivation:** same normalized request => same handle across repeated calls and process restarts.
+2. **Canonical defaults:** omitted values and defaulted values serialize identically in the handle payload.
+3. **Versioned handles:** keep the `v1:`-style discriminator so tests can pin the contract and detect breaking changes cleanly.
+4. **Stable handle ordering:** parent responses should emit handles in a fixed order per tool so fixture assertions are simple and repeatable.
+
+### Phase 2 warning I want recorded now
+
+Phase 1 section handles are testable. **Phase 2 row-level handles are not yet approved.** The handle audit already shows why:
+
+- `sp_BlitzCache` row-level drill-down is shaky until `QueryHash` is exposed and proven stable.
+- `sp_BlitzFirst` row-level drill-down is inherently unstable because `CheckDate` is execution-time data and findings lack a stable ID.
+
+So the testability gate for Phase 2 is: **do not proceed with row-level handles until each parent tool has a stable row identity and a deterministic fixture story.**
 
 ---
 

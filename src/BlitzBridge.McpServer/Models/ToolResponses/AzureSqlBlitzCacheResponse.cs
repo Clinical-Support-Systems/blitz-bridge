@@ -33,9 +33,34 @@ public sealed class AzureSqlBlitzCacheResponse
     public int AiMode { get; set; }
 
     /// <summary>
+    /// Total compact query rows returned.
+    /// </summary>
+    public int QueryCount { get; set; }
+
+    /// <summary>
+    /// Total compact warning glossary rows returned.
+    /// </summary>
+    public int WarningGlossaryCount { get; set; }
+
+    /// <summary>
+    /// Indicates whether an AI prompt was returned.
+    /// </summary>
+    public bool HasAiPrompt { get; set; }
+
+    /// <summary>
+    /// Indicates whether AI advice was returned.
+    /// </summary>
+    public bool HasAiAdvice { get; set; }
+
+    /// <summary>
     /// Compact summary entries.
     /// </summary>
     public List<DiagnosticSummary> Summary { get; set; } = [];
+
+    /// <summary>
+    /// Section-level detail handles.
+    /// </summary>
+    public List<AzureSqlDetailHandle> Handles { get; set; } = [];
 
     /// <summary>
     /// Compacted query rows.

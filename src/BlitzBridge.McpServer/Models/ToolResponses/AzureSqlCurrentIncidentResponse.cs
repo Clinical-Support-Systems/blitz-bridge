@@ -26,9 +26,19 @@ namespace BlitzBridge.McpServer.Models.ToolResponses
         public int TotalFindingRows { get; set; }
 
         /// <summary>
+        /// Top wait types visible in the compact response.
+        /// </summary>
+        public List<string> TopWaitTypes { get; set; } = new();
+
+        /// <summary>
         /// Compact summary entries.
         /// </summary>
         public List<DiagnosticSummary> Summary { get; set; } = new();
+
+        /// <summary>
+        /// Section-level detail handles.
+        /// </summary>
+        public List<AzureSqlDetailHandle> Handles { get; set; } = new();
 
         /// <summary>
         /// Compacted waits result rows.

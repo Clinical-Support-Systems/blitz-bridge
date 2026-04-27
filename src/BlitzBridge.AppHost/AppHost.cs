@@ -1,5 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// Add the following line to configure the Azure App Container environment
+builder.AddAzureContainerAppEnvironment("env");
+
 var targetConnectionString = builder.AddParameter("primary-sql-target-connection-string", secret: true);
 var targetDatabaseName = builder.AddParameter("primary-sql-target-database");
 var commandTimeoutSeconds = builder.AddParameter("primary-sql-target-command-timeout-seconds");
