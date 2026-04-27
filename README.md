@@ -24,8 +24,17 @@ Use this when you want the quickest path for local or workstation use.
 
 ```bash
 dotnet tool install -g BlitzBridge.McpServer
+blitz-bridge --init-config
 blitz-bridge --transport stdio --config path/to/profiles.json
 ```
+
+`--init-config` creates a starter `profiles.json` and exits without starting the server.
+
+- Default path (when `--config` is omitted):
+  - Windows: `%APPDATA%\blitz-bridge\profiles.json`
+  - Linux/macOS: `~/.config/blitz-bridge/profiles.json`
+- Optional custom path:
+  - `blitz-bridge --init-config --config ./profiles.beta.json`
 
 Client config examples:
 

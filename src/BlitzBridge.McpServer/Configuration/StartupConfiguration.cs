@@ -11,10 +11,12 @@ internal sealed record StartupConfiguration(
     string? ConfigPath,
     bool ShouldFailFast,
     string FailureMessage,
-    int ExitCode)
+    int ExitCode,
+    bool ShouldInitializeConfig = false)
 {
     private const string ConfigFlag = "--config";
     private const string TransportFlag = "--transport";
+    private const string InitConfigFlag = "--init-config";
 
     public static StartupConfiguration Parse(string[] args)
     {
@@ -26,6 +28,7 @@ internal sealed record StartupConfiguration(
         Func<string> defaultConfigPathProvider,
         Func<string, bool> fileExists)
     {
+        var shouldInitializeConfig = HasFlag(args, InitConfigFlag);
         var transport = GetFlagValue(args, TransportFlag, out _, out _);
         var transportMode = transport?.ToLowerInvariant() switch
         {
@@ -42,12 +45,19 @@ internal sealed record StartupConfiguration(
                 null,
                 true,
                 "The --config option requires a path value.",
-                2);
+                2,
+                false);
         }
 
         var configPath = !string.IsNullOrWhiteSpace(explicitConfigPath)
             ? Path.GetFullPath(explicitConfigPath)
             : null;
+
+        if (shouldInitializeConfig)
+        {
+            configPath ??= defaultConfigPathProvider();
+            return new StartupConfiguration(transportMode, configPath, false, string.Empty, 0, true);
+        }
 
         if (transportMode == TransportMode.Stdio)
         {
@@ -59,11 +69,17 @@ internal sealed record StartupConfiguration(
                     configPath,
                     true,
                     $"Startup error: SQL target configuration file was not found at '{configPath}'. Provide --config <path> or create the default profiles.json.",
-                    2);
+                    2,
+                    false);
             }
         }
 
-        return new StartupConfiguration(transportMode, configPath, false, string.Empty, 0);
+        return new StartupConfiguration(transportMode, configPath, false, string.Empty, 0, false);
+    }
+
+    private static bool HasFlag(string[] args, string flag)
+    {
+        return args.Any(arg => string.Equals(arg, flag, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string? GetFlagValue(

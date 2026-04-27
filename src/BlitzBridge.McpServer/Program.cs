@@ -1,6 +1,7 @@
 using BlitzBridge.McpServer.Configuration;
 using BlitzBridge.McpServer.Middleware;
 using BlitzBridge.McpServer.Services;
+using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
@@ -12,6 +13,10 @@ if (startup.ShouldFailFast)
     Console.Error.WriteLine(startup.FailureMessage);
     return startup.ExitCode;
 }
+if (startup.ShouldInitializeConfig)
+{
+    return InitializeConfigFile(startup.ConfigPath!);
+}
 
 if (startup.TransportMode == TransportMode.Stdio)
 {
@@ -19,6 +24,49 @@ if (startup.TransportMode == TransportMode.Stdio)
 }
 
 return await RunHttpAsync(startup, args);
+
+static int InitializeConfigFile(string configPath)
+{
+    var directory = Path.GetDirectoryName(configPath);
+    if (!string.IsNullOrWhiteSpace(directory))
+    {
+        Directory.CreateDirectory(directory);
+    }
+
+    if (File.Exists(configPath))
+    {
+        Console.Error.WriteLine($"Config file already exists at '{configPath}'. Refusing to overwrite.");
+        return 2;
+    }
+
+    var sampleConfig = new
+    {
+        SqlTargets = new
+        {
+            Profiles = new Dictionary<string, object>
+            {
+                ["primary-sql-target"] = new
+                {
+                    ConnectionString = "Server=tcp:example.database.windows.net;Database=DBAtools;Authentication=Active Directory Default;Encrypt=True;ApplicationIntent=ReadOnly;",
+                    AllowedDatabases = new[] { "AppDb" },
+                    AllowedProcedures = new[] { "sp_Blitz", "sp_BlitzCache", "sp_BlitzFirst", "sp_BlitzIndex", "sp_BlitzLock", "sp_BlitzWho" },
+                    Enabled = true,
+                    CommandTimeoutSeconds = 60,
+                    AiMode = 2
+                }
+            }
+        }
+    };
+
+    var json = JsonSerializer.Serialize(sampleConfig, new JsonSerializerOptions
+    {
+        WriteIndented = true
+    });
+
+    File.WriteAllText(configPath, $"{json}{Environment.NewLine}");
+    Console.WriteLine($"Initialized sample config at '{configPath}'.");
+    return 0;
+}
 
 static async Task<int> RunStdioAsync(StartupConfiguration startup)
 {

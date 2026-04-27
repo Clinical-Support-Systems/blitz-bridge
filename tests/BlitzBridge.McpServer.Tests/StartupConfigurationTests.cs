@@ -80,4 +80,30 @@ public class StartupConfigurationTests
             .Throws<ArgumentException>()
             .WithMessage("Invalid --transport value. Supported values are 'http' and 'stdio'.");
     }
+
+    [Test]
+    public async Task Parse_InitConfig_UsesDefaultPath_WhenConfigNotProvided()
+    {
+        var result = StartupConfiguration.Parse(
+            ["--init-config"],
+            () => @"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json",
+            _ => false);
+
+        await Assert.That(result.ShouldFailFast).IsFalse();
+        await Assert.That(result.ShouldInitializeConfig).IsTrue();
+        await Assert.That(result.ConfigPath).IsEqualTo(@"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json");
+    }
+
+    [Test]
+    public async Task Parse_InitConfig_UsesProvidedConfigPath()
+    {
+        var result = StartupConfiguration.Parse(
+            ["--init-config", "--config", @"C:\configs\beta-profiles.json"],
+            () => @"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json",
+            _ => false);
+
+        await Assert.That(result.ShouldFailFast).IsFalse();
+        await Assert.That(result.ShouldInitializeConfig).IsTrue();
+        await Assert.That(result.ConfigPath).IsEqualTo(@"C:\configs\beta-profiles.json");
+    }
 }
