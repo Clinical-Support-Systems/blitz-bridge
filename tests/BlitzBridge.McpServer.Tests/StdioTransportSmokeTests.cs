@@ -5,13 +5,46 @@ namespace BlitzBridge.McpServer.Tests;
 
 public class StdioTransportSmokeTests
 {
+    private static ProcessStartInfo CreateStdioProcessStartInfo(string serverDirectory, string configPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new ProcessStartInfo
+            {
+                FileName = Path.Combine(serverDirectory, "BlitzBridge.McpServer.exe"),
+                Arguments = $"--transport stdio --config \"{configPath}\"",
+                WorkingDirectory = serverDirectory,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+        }
+
+        return new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{Path.Combine(serverDirectory, "BlitzBridge.McpServer.dll")}\" --transport stdio --config \"{configPath}\"",
+            WorkingDirectory = serverDirectory,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+    }
+
     [Test]
     public async Task StdioTransport_CanParseInitializeRequest_FromStdin()
     {
-        var serverPath = Path.GetFullPath(Path.Combine(
+        var serverDirectory = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
-            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0", "BlitzBridge.McpServer.exe"));
+            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0"));
+        var serverPath = OperatingSystem.IsWindows()
+            ? Path.Combine(serverDirectory, "BlitzBridge.McpServer.exe")
+            : Path.Combine(serverDirectory, "BlitzBridge.McpServer.dll");
         var configPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
@@ -22,17 +55,7 @@ public class StdioTransportSmokeTests
 
         using var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = serverPath,
-                Arguments = $"--transport stdio --config \"{configPath}\"",
-                WorkingDirectory = Path.GetDirectoryName(serverPath)!,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+            StartInfo = CreateStdioProcessStartInfo(serverDirectory, configPath)
         };
 
         var responseCompletion = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -99,10 +122,13 @@ public class StdioTransportSmokeTests
     [Test]
     public async Task StdioTransport_BypassesHttpAuthMiddleware_AndStillInitializes()
     {
-        var serverPath = Path.GetFullPath(Path.Combine(
+        var serverDirectory = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
-            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0", "BlitzBridge.McpServer.exe"));
+            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0"));
+        var serverPath = OperatingSystem.IsWindows()
+            ? Path.Combine(serverDirectory, "BlitzBridge.McpServer.exe")
+            : Path.Combine(serverDirectory, "BlitzBridge.McpServer.dll");
         var configPath = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
             "..", "..", "..", "..", "..",
@@ -113,17 +139,7 @@ public class StdioTransportSmokeTests
 
         using var process = new Process
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = serverPath,
-                Arguments = $"--transport stdio --config \"{configPath}\"",
-                WorkingDirectory = Path.GetDirectoryName(serverPath)!,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+            StartInfo = CreateStdioProcessStartInfo(serverDirectory, configPath)
         };
 
         process.StartInfo.Environment["BlitzBridge__Auth__Mode"] = "BearerToken";

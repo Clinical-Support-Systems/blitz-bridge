@@ -61,13 +61,15 @@ public class StartupConfigurationTests
     [Test]
     public async Task Parse_UsesInlineConfigFlag_WhenProvided()
     {
+        var providedConfigPath = Path.Combine("configs", "profiles.json");
+        var expectedConfigPath = Path.GetFullPath(providedConfigPath);
         var result = StartupConfiguration.Parse(
-            ["--transport=stdio", "--config=C:\\configs\\profiles.json"],
+            ["--transport=stdio", $"--config={providedConfigPath}"],
             () => @"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json",
-            path => string.Equals(path, @"C:\configs\profiles.json", StringComparison.OrdinalIgnoreCase));
+            path => string.Equals(path, expectedConfigPath, StringComparison.OrdinalIgnoreCase));
 
         await Assert.That(result.ShouldFailFast).IsFalse();
-        await Assert.That(result.ConfigPath).IsEqualTo(@"C:\configs\profiles.json");
+        await Assert.That(result.ConfigPath).IsEqualTo(expectedConfigPath);
         await Assert.That(result.TransportMode).IsEqualTo(TransportMode.Stdio);
     }
 
@@ -98,13 +100,15 @@ public class StartupConfigurationTests
     [Test]
     public async Task Parse_InitConfig_UsesProvidedConfigPath()
     {
+        var providedConfigPath = Path.Combine("configs", "beta-profiles.json");
+        var expectedConfigPath = Path.GetFullPath(providedConfigPath);
         var result = StartupConfiguration.Parse(
-            ["--init-config", "--config", @"C:\configs\beta-profiles.json"],
+            ["--init-config", "--config", providedConfigPath],
             () => @"C:\Users\test\AppData\Roaming\blitz-bridge\profiles.json",
             _ => false);
 
         await Assert.That(result.ShouldFailFast).IsFalse();
         await Assert.That(result.ShouldInitializeConfig).IsTrue();
-        await Assert.That(result.ConfigPath).IsEqualTo(@"C:\configs\beta-profiles.json");
+        await Assert.That(result.ConfigPath).IsEqualTo(expectedConfigPath);
     }
 }
