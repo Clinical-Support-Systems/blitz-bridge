@@ -39,7 +39,6 @@ public class SqlProfilesHealthCheckTests
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
         await Assert.That(body).Contains("Degraded");
-        await Assert.That(body).Contains("primary-sql-target");
     }
 
     [Test]

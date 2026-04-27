@@ -1,7 +1,13 @@
 <Solution>
   <Folder Name="/Solution Items/">
     <File Path=".gitattributes" />
+    <File Path=".github/workflows/publish.yml" />
+    <File Path=".github/workflows/squad-heartbeat.yml" />
+    <File Path=".github/workflows/squad-issue-assign.yml" />
+    <File Path=".github/workflows/squad-triage.yml" />
+    <File Path=".github/workflows/sync-squad-labels.yml" />
     <File Path=".gitignore" />
+    <File Path="global.json" />
     <File Path="icon_128.png" />
     <File Path="icon_large.png" />
     <File Path="LICENSE" />

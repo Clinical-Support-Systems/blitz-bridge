@@ -154,5 +154,8 @@ static void ConfigureSharedServices(IServiceCollection services, IConfiguration 
         .AddCheck<SqlProfilesHealthCheck>("sql-target-connectivity", failureStatus: HealthStatus.Degraded);
 }
 
+/// <summary>
+/// Entry-point marker used for integration test hosting.
+/// </summary>
 public partial class Program;
 

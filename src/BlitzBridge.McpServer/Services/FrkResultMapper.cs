@@ -6,6 +6,9 @@ using BlitzBridge.McpServer.Models.ToolResponses;
 
 namespace BlitzBridge.McpServer.Services;
 
+/// <summary>
+/// Maps FRK <see cref="DataSet"/> results into compact MCP response models.
+/// </summary>
 public sealed class FrkResultMapper
 {
     private static readonly string[] HealthCheckPreferredColumns =
@@ -38,6 +41,12 @@ public sealed class FrkResultMapper
         "URL"
     ];
 
+    /// <summary>
+    /// Maps <c>sp_Blitz</c> results to the health-check response model.
+    /// </summary>
+    /// <param name="request">Original tool request.</param>
+    /// <param name="dataSet">Returned FRK data set.</param>
+    /// <returns>Mapped health-check response.</returns>
     public AzureSqlHealthCheckResponse MapHealthCheck(AzureSqlHealthCheckRequest request, DataSet dataSet)
     {
         var findings = ToProjectedRows(dataSet, 0, request.MaxRows, HealthCheckPreferredColumns, 280);
@@ -62,6 +71,12 @@ public sealed class FrkResultMapper
         };
     }
 
+    /// <summary>
+    /// Maps <c>sp_BlitzCache</c> results to the BlitzCache response model.
+    /// </summary>
+    /// <param name="request">Original tool request.</param>
+    /// <param name="dataSet">Returned FRK data set.</param>
+    /// <returns>Mapped BlitzCache response.</returns>
     public AzureSqlBlitzCacheResponse MapBlitzCache(AzureSqlBlitzCacheRequest request, DataSet dataSet)
     {
         var verboseResultSets = request.IncludeVerboseResults
@@ -128,6 +143,12 @@ public sealed class FrkResultMapper
         };
     }
 
+    /// <summary>
+    /// Maps <c>sp_BlitzIndex</c> results to the BlitzIndex response model.
+    /// </summary>
+    /// <param name="request">Original tool request.</param>
+    /// <param name="dataSet">Returned FRK data set.</param>
+    /// <returns>Mapped BlitzIndex response.</returns>
     public AzureSqlBlitzIndexResponse MapBlitzIndex(AzureSqlBlitzIndexRequest request, DataSet dataSet)
     {
         var resultSets = request.IncludeVerboseResults
@@ -209,6 +230,12 @@ public sealed class FrkResultMapper
         };
     }
 
+    /// <summary>
+    /// Maps <c>sp_BlitzFirst</c> results to the current-incident response model.
+    /// </summary>
+    /// <param name="request">Original tool request.</param>
+    /// <param name="dataSet">Returned FRK data set.</param>
+    /// <returns>Mapped current-incident response.</returns>
     public AzureSqlCurrentIncidentResponse MapCurrentIncident(AzureSqlCurrentIncidentRequest request, DataSet dataSet)
     {
         var waits = ToProjectedRows(dataSet, 0, request.MaxRows, IncidentWaitPreferredColumns, 180);
@@ -245,6 +272,11 @@ public sealed class FrkResultMapper
         };
     }
 
+    /// <summary>
+    /// Maps target capability metadata to the tool response model.
+    /// </summary>
+    /// <param name="capabilities">Raw capability metadata.</param>
+    /// <returns>Mapped target-capabilities response.</returns>
     public AzureSqlTargetCapabilitiesResponse MapTargetCapabilities(SqlTargetCapabilities capabilities)
     {
         var summary = new List<DiagnosticSummary>

@@ -7,8 +7,20 @@ using Microsoft.Extensions.Options;
 
 namespace BlitzBridge.McpServer.Services;
 
+/// <summary>
+/// Executes FRK procedures and capability probes against configured SQL targets.
+/// </summary>
 public interface ISqlExecutionService
 {
+    /// <summary>
+    /// Executes a stored procedure against a configured target profile.
+    /// </summary>
+    /// <param name="target">Target profile name.</param>
+    /// <param name="procedureName">Stored procedure name.</param>
+    /// <param name="requestedDatabaseName">Optional requested database context.</param>
+    /// <param name="parameters">Procedure parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Returned result set collection.</returns>
     Task<DataSet> ExecuteStoredProcedureAsync(
         string target,
         string procedureName,
@@ -16,13 +28,27 @@ public interface ISqlExecutionService
         IEnumerable<SqlParameter> parameters,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Retrieves capability metadata for a target profile.
+    /// </summary>
+    /// <param name="target">Target profile name.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Capability metadata.</returns>
     Task<SqlTargetCapabilities> GetTargetCapabilitiesAsync(
         string target,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Gets the configured default AI mode for a target profile.
+    /// </summary>
+    /// <param name="target">Target profile name.</param>
+    /// <returns>AI mode value.</returns>
     int GetConfiguredAiMode(string target);
 }
 
+/// <summary>
+/// Default implementation of <see cref="ISqlExecutionService"/>.
+/// </summary>
 public sealed class SqlExecutionService : ISqlExecutionService
 {
     private static readonly string[] DefaultAllowedProcedures =
@@ -69,11 +95,16 @@ public sealed class SqlExecutionService : ISqlExecutionService
 
     private readonly SqlTargetOptions _options;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SqlExecutionService"/> class.
+    /// </summary>
+    /// <param name="options">Bound SQL target options.</param>
     public SqlExecutionService(IOptions<SqlTargetOptions> options)
     {
         _options = options.Value;
     }
 
+    /// <inheritdoc />
     public async Task<DataSet> ExecuteStoredProcedureAsync(
         string target,
         string procedureName,
@@ -105,6 +136,7 @@ public sealed class SqlExecutionService : ISqlExecutionService
         return dataSet;
     }
 
+    /// <inheritdoc />
     public async Task<SqlTargetCapabilities> GetTargetCapabilitiesAsync(
         string target,
         CancellationToken cancellationToken = default)
@@ -151,6 +183,7 @@ public sealed class SqlExecutionService : ISqlExecutionService
         };
     }
 
+    /// <inheritdoc />
     public int GetConfiguredAiMode(string target)
     {
         var targetContext = GetTargetContext(target, "sp_BlitzCache", null);

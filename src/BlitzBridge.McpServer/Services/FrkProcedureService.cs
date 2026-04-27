@@ -6,6 +6,9 @@ using Microsoft.Data.SqlClient;
 
 namespace BlitzBridge.McpServer.Services;
 
+/// <summary>
+/// Orchestrates validated FRK procedure calls for MCP tool handlers.
+/// </summary>
 public sealed partial class FrkProcedureService
 {
     private static readonly string[] AllowedSortOrders = ["cpu", "duration", "executions", "reads"];
@@ -13,6 +16,11 @@ public sealed partial class FrkProcedureService
     private readonly ISqlExecutionService _sqlExecutionService;
     private readonly FrkResultMapper _mapper;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="FrkProcedureService"/> class.
+    /// </summary>
+    /// <param name="sqlExecutionService">SQL execution abstraction.</param>
+    /// <param name="mapper">Result mapper for tool responses.</param>
     public FrkProcedureService(
         ISqlExecutionService sqlExecutionService,
         FrkResultMapper mapper)
@@ -21,6 +29,12 @@ public sealed partial class FrkProcedureService
         _mapper = mapper;
     }
 
+    /// <summary>
+    /// Runs <c>sp_Blitz</c> and maps the result to a health check response payload.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped health check response.</returns>
     public async Task<object> RunHealthCheckAsync(
         AzureSqlHealthCheckRequest request,
         CancellationToken cancellationToken = default)
@@ -56,6 +70,12 @@ public sealed partial class FrkProcedureService
         return _mapper.MapHealthCheck(request, dataSet);
     }
 
+    /// <summary>
+    /// Runs <c>sp_BlitzCache</c> and maps the result.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped BlitzCache response.</returns>
     public async Task<AzureSqlBlitzCacheResponse> RunBlitzCacheAsync(
         AzureSqlBlitzCacheRequest request,
         CancellationToken cancellationToken = default)
@@ -110,6 +130,12 @@ public sealed partial class FrkProcedureService
         return _mapper.MapBlitzCache(request, dataSet);
     }
 
+    /// <summary>
+    /// Runs <c>sp_BlitzIndex</c> for a single table and maps the result.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped BlitzIndex response.</returns>
     public async Task<AzureSqlBlitzIndexResponse> RunBlitzIndexAsync(
         AzureSqlBlitzIndexRequest request,
         CancellationToken cancellationToken = default)
@@ -163,6 +189,12 @@ public sealed partial class FrkProcedureService
         return _mapper.MapBlitzIndex(request, dataSet);
     }
 
+    /// <summary>
+    /// Runs <c>sp_BlitzFirst</c> and maps the result to an incident snapshot payload.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped current-incident response.</returns>
     public async Task<object> RunCurrentIncidentAsync(
         AzureSqlCurrentIncidentRequest request,
         CancellationToken cancellationToken = default)
@@ -193,6 +225,12 @@ public sealed partial class FrkProcedureService
         return _mapper.MapCurrentIncident(request, dataSet);
     }
 
+    /// <summary>
+    /// Retrieves target capability metadata and maps it for tool output.
+    /// </summary>
+    /// <param name="request">Tool request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Mapped target capabilities response.</returns>
     public async Task<AzureSqlTargetCapabilitiesResponse> RunTargetCapabilitiesAsync(
         AzureSqlTargetCapabilitiesRequest request,
         CancellationToken cancellationToken = default)
@@ -206,6 +244,11 @@ public sealed partial class FrkProcedureService
         return _mapper.MapTargetCapabilities(capabilities);
     }
 
+    /// <summary>
+    /// Gets the configured default AI mode for a target profile.
+    /// </summary>
+    /// <param name="target">Target profile name.</param>
+    /// <returns>Configured AI mode.</returns>
     public int GetConfiguredAiMode(string target)
     {
         ValidateTarget(target);

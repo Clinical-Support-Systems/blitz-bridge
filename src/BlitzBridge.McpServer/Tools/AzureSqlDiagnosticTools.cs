@@ -6,16 +6,35 @@ using ModelContextProtocol.Server;
 
 namespace BlitzBridge.McpServer.Tools;
 
+/// <summary>
+/// MCP tool surface for Azure SQL FRK diagnostics.
+/// </summary>
 [McpServerToolType]
 public sealed class AzureSqlDiagnosticTools
 {
     private readonly FrkProcedureService _frkProcedureService;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AzureSqlDiagnosticTools"/> class.
+    /// </summary>
+    /// <param name="frkProcedureService">FRK orchestration service.</param>
     public AzureSqlDiagnosticTools(FrkProcedureService frkProcedureService)
     {
         _frkProcedureService = frkProcedureService;
     }
 
+    /// <summary>
+    /// Runs a health-check diagnostic through <c>sp_Blitz</c>.
+    /// </summary>
+    /// <param name="target">Optional target profile name.</param>
+    /// <param name="databaseName">Optional database name override.</param>
+    /// <param name="minimumPriority">Optional minimum priority threshold.</param>
+    /// <param name="expertMode">Optional expert mode override.</param>
+    /// <param name="maxRows">Optional max-row limit for compacted payloads.</param>
+    /// <param name="includeVerboseResults">Optional verbose result inclusion flag.</param>
+    /// <param name="request">Optional request object form.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tool response payload.</returns>
     [McpServerTool, Description("Run an Azure-safe SQL health check using sp_Blitz.")]
     public Task<object> AzureSqlHealthCheck(
         string? target = null,
@@ -38,6 +57,22 @@ public sealed class AzureSqlDiagnosticTools
             },
             cancellationToken);
 
+    /// <summary>
+    /// Runs plan-cache diagnostics through <c>sp_BlitzCache</c>.
+    /// </summary>
+    /// <param name="target">Optional target profile name.</param>
+    /// <param name="databaseName">Optional database name override.</param>
+    /// <param name="sortOrder">Optional sort order override.</param>
+    /// <param name="top">Optional top-row input for FRK.</param>
+    /// <param name="expertMode">Optional expert mode override.</param>
+    /// <param name="aiMode">Optional AI mode override.</param>
+    /// <param name="aiPromptConfigTable">Optional AI prompt config table name.</param>
+    /// <param name="aiPromptName">Optional AI prompt name.</param>
+    /// <param name="maxRows">Optional max-row limit for compacted payloads.</param>
+    /// <param name="includeVerboseResults">Optional verbose result inclusion flag.</param>
+    /// <param name="request">Optional request object form.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tool response payload.</returns>
     [McpServerTool, Description("Run sp_BlitzCache for the requested sort order and surface any FRK AI prompt or advice output.")]
     public async Task<object> AzureSqlBlitzCache(
         string? target = null,
@@ -71,6 +106,24 @@ public sealed class AzureSqlDiagnosticTools
             },
             cancellationToken);
 
+    /// <summary>
+    /// Runs single-table index diagnostics through <c>sp_BlitzIndex</c>.
+    /// </summary>
+    /// <param name="target">Optional target profile name.</param>
+    /// <param name="databaseName">Optional database name override.</param>
+    /// <param name="schemaName">Optional schema name override.</param>
+    /// <param name="tableName">Optional table name override.</param>
+    /// <param name="mode">Optional FRK mode override.</param>
+    /// <param name="thresholdMb">Optional threshold override in MB.</param>
+    /// <param name="expertMode">Optional expert mode override.</param>
+    /// <param name="aiMode">Optional AI mode override.</param>
+    /// <param name="aiPromptConfigTable">Optional AI prompt config table name.</param>
+    /// <param name="aiPromptName">Optional AI prompt name.</param>
+    /// <param name="maxRows">Optional max-row limit for compacted payloads.</param>
+    /// <param name="includeVerboseResults">Optional verbose result inclusion flag.</param>
+    /// <param name="request">Optional request object form.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tool response payload.</returns>
     [McpServerTool, Description("Run single-table sp_BlitzIndex analysis and surface any FRK AI prompt or advice output.")]
     public async Task<object> AzureSqlBlitzIndex(
         string? target = null,
@@ -108,6 +161,17 @@ public sealed class AzureSqlDiagnosticTools
             },
             cancellationToken);
 
+    /// <summary>
+    /// Runs incident snapshot diagnostics through <c>sp_BlitzFirst</c>.
+    /// </summary>
+    /// <param name="target">Optional target profile name.</param>
+    /// <param name="databaseName">Optional database name input.</param>
+    /// <param name="expertMode">Optional expert mode override.</param>
+    /// <param name="maxRows">Optional max-row limit for compacted payloads.</param>
+    /// <param name="includeVerboseResults">Optional verbose result inclusion flag.</param>
+    /// <param name="request">Optional request object form.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tool response payload.</returns>
     [McpServerTool, Description("Capture a current incident snapshot using sp_BlitzFirst.")]
     public Task<object> AzureSqlCurrentIncident(
         string? target = null,
@@ -128,6 +192,13 @@ public sealed class AzureSqlDiagnosticTools
             },
             cancellationToken);
 
+    /// <summary>
+    /// Returns capability metadata for a configured target profile.
+    /// </summary>
+    /// <param name="target">Optional target profile name.</param>
+    /// <param name="request">Optional request object form.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tool response payload.</returns>
     [McpServerTool, Description("Return installed FRK procedures, AI readiness, and target-level safety metadata for a configured profile.")]
     public async Task<object> AzureSqlTargetCapabilities(
         string? target = null,
