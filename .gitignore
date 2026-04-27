@@ -11,6 +11,9 @@
 *.sln.docstates
 *.env
 
+# Claude Code per-machine overrides (keep shared .claude/settings.json + hooks)
+.claude/settings.local.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build*)",
+      "Bash(dotnet restore*)",
+      "Bash(dotnet test*)",
+      "Bash(dotnet run*)",
+      "Bash(dotnet format*)",
+      "Bash(dotnet tool*)",
+      "Bash(dotnet new*)",
+      "Bash(dotnet ef*)",
+      "Bash(dotnet user-secrets*)",
+      "Bash(dotnet pack*)",
+      "Bash(dotnet publish*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git restore*)",
+      "Bash(git switch*)",
+      "Bash(git checkout*)",
+      "Bash(git stash*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh api*)"
+    ],
+    "deny": [
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.snk)",
+      "Read(./**/*.key)",
+      "Read(./**/appsettings.*.Production.json)",
+      "Read(./**/secrets.json)",
+      "Edit(./**/.env)",
+      "Edit(./**/.env.*)",
+      "Edit(./**/*.pfx)",
+      "Edit(./**/*.snk)",
+      "Edit(./**/*.key)",
+      "Write(./**/.env)",
+      "Write(./**/.env.*)",
+      "Write(./**/*.pfx)",
+      "Write(./**/*.snk)",
+      "Write(./**/*.key)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"./.claude/hooks/format-csharp.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
