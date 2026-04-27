@@ -50,3 +50,13 @@ Tester initialized with day-1 project context.
 - Found runtime coupling issue where FRK execution could fail with SQL `QUOTED_IDENTIFIER` session mismatch in containerized path; fixed by setting session options before SQL command execution in `SqlExecutionService`.
 - Validation after changes: `dotnet build BlitzBridge.slnx` passed, test project build + direct TUnit host run passed (`22/22`), compose stack reaches healthy SQL + running bridge state with init completion marker.
 
+### Batch 0: Progressive Disclosure Testability Review (2026-04-27)
+
+- Reviewed `docs/progressive-disclosure-design.md` through a testability lens only; no `src/` changes made.
+- Verdict: approve Phase 1 summary-plus-handles design for testing, provided handles remain section-level, deterministic, versioned, and derived from normalized request parameters rather than cache state or runtime row values.
+- Key fixture conclusion for D-3: deterministic FRK stub handles are feasible for section-level drill-downs because parent and detail contracts can share a canonical request-tuple-derived handle.
+- Phase 2 warning recorded: row-level handles are not test-approved yet for `sp_BlitzCache` (needs stable `QueryHash`) or `sp_BlitzFirst` (snapshot `CheckDate`, no stable finding ID).
+- Key paths: `docs/progressive-disclosure-design.md`, `docs/progressive-disclosure-handle-audit.md`, `docs/implementation-work-items.md`, `samples/docker-compose-demo/sql/frk-install.sql`.
+- **Decision merged** → `mcmanus-progressive-disclosure-review.md` consolidated to `decisions.md` as Decision 017 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-mcmanus.md`
+

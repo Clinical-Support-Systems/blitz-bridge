@@ -25,3 +25,17 @@ Azure SQL specialist initialized with day-1 project context.
 - Added split seed strategy: `seed-workload.sql` for rich demo query-cache output and `seed-test.sql` for reusable deterministic integration setup.
 - Added a repeatable verifier script (`scripts/verify-demo.ps1`) that validates compose startup and calls `azure_sql_health_check` on `demo-sql-target`.
 - Wrote decision note: `.squad/decisions/inbox/hockney-docker-demo.md`.
+
+### Progressive Disclosure Handle Audit — Phase 1 FRK Procedures (2026-04-27)
+
+- **Scope:** Audited sp_Blitz, sp_BlitzCache, sp_BlitzIndex, sp_BlitzFirst for row identity, server-side narrowing, and result shape.
+- **Key Findings:**
+  - All procedures have stable natural handles (CheckID for Blitz, QueryHash for Cache, IndexName for Index, WaitType/Finding for First).
+  - Server-side narrowing varies: sp_BlitzIndex has full table-scope narrowing (required params); sp_BlitzCache has partial (Top + SortOrder); sp_Blitz and sp_BlitzFirst have none.
+  - Current response models already implement correct summary/detail splits with MaxRows compaction; no breaking changes needed.
+- **Uncertainties Called Out:** CheckID stability across FRK versions (assume v8.19 is stable; validate in D-1), sp_BlitzFirst lacks stable FindingID (drill-down via time-series only), QueryHash not exposed in current response.
+- **Artifact:** `docs/progressive-disclosure-handle-audit.md` + decision note `.squad/decisions/inbox/hockney-progressive-disclosure.md`.
+- **Phase 2+ Opportunities:** Expose QueryHash + handle fields, add compaction metadata, audit sp_BlitzLock.
+- **Verdict:** No Phase 1 code changes required; response model design is sound.
+- **Decision merged** → `hockney-progressive-disclosure.md` consolidated to `decisions.md` as Decision 014 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-hockney.md`

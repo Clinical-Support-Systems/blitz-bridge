@@ -294,6 +294,103 @@ Implemented HTTP auth middleware and CORS hardening for broader hosting scenario
 
 **Related:** `.squad/orchestration-log/fenster-auth-cors-hardening.md`
 
+### Decision 014: Progressive Disclosure Handle Audit — FRK Procedures (2026-04-27)
+
+**Author:** Hockney  
+**Status:** Active
+
+Comprehensive audit of row identifiers ("handles"), server-side narrowing capability, and response-set shape for all four FRK procedures wrapped in BlitzBridge.
+
+**Key Findings:**
+
+| Procedure | Primary Handle | Stability | Server Narrowing |
+|-----------|---|---|---|
+| sp_Blitz | CheckID (+ Priority, FindingsGroup) | ✅ Stable | ❌ None (client re-run + filter) |
+| sp_BlitzCache | QueryHash (+ DatabaseName) | 🟡 Moderate* | 🟡 Partial (@Top/@SortOrder only) |
+| sp_BlitzIndex | IndexName (scoped to table) | ✅ Stable | ✅ Full (required params) |
+| sp_BlitzFirst | WaitType / Finding | 🟡 Snapshot-scoped | ❌ None (point-in-time only) |
+
+*QueryHash not exposed in current response; tracked via QueryText
+
+**Response Model Assessment:**
+
+Current compacted arrays + optional `IncludeVerboseResults` already implement correct progressive disclosure patterns. No breaking changes required for Phase 1.
+
+**Phase 1 Recommendation:** No code changes needed. Design is sound and ready for additive progressive disclosure.
+
+**Phase 2+ Opportunities:**
+- Expose QueryHash in BlitzCache responses
+- Add compaction metadata (`isTruncated`, `totalRows`)
+- Audit sp_BlitzLock for similar patterns
+
+**Related:** `docs/progressive-disclosure-handle-audit.md`, `src/BlitzBridge.McpServer/Services/FrkResultMapper.cs`
+
+### Decision 015: Progressive Disclosure Responses & Detail Tool Design (2026-04-27)
+
+**Author:** Fenster  
+**Status:** Active
+
+Recommend generic drill-down tool pattern over per-parent detail tools for progressive disclosure responses.
+
+**Key Decisions:**
+
+1. **One generic detail tool:** `azure_sql_fetch_detail_by_handle` with required inputs: `target`, `parentTool`, `kind`, `handle`
+2. **Section-level handles for Phase 1:** Handles represent `findings`, `queries`, `missing_indexes`, `ai_prompt`, etc. — not individual rows
+3. **`kind` values strictly validated per `parentTool`** — prevents cross-tool handle confusion
+4. **Detail responses echo `parentTool`, `kind`, `handle`** — maintains request-response traceability
+5. **Deprecate `IncludeVerboseResults`** — do not repurpose; keep for backward compatibility only
+
+**Why Generic Tool:**
+
+Single tool avoids tool sprawl, maintains tight discriminator validation, and keeps paging/handle semantics unified across all parent tools.
+
+**Related:** `docs/progressive-disclosure-response-shapes.md`, `src/BlitzBridge.McpServer/Tools/AzureSqlDiagnosticTools.cs`
+
+### Decision 016: Progressive Disclosure Phase 1 Design Specification (2026-04-27)
+
+**Author:** Keaton (Lead)  
+**Status:** Active  
+**Scope:** Response shape changes, new detail tool, caching posture, telemetry
+
+**Key Decisions:**
+
+1. **One new tool: `azure_sql_fetch_detail_by_handle`** — required `parentTool` + `kind` discriminators; stateless re-run, no cache
+2. **Phase 1 is additive-only** — existing compacted arrays stay in responses alongside new `handles` array and scalar summaries; no fields removed
+3. **`IncludeVerboseResults` deprecated, not removed or repurposed** — flag keeps working in Phase 1; documentation marks deprecated
+4. **No server-side caching of result sets** — memory pressure, point-in-time staleness, stdio restarts, and lightweight deployment prohibit it; all FRK procs ≤8 sec; re-run is correct strategy
+5. **Telemetry: `estimated_payload_tokens` on every tool call** — instrument immediately using `BlitzBridge.Diagnostics` meter, independent of progressive disclosure; chars/4 heuristic
+6. **Handles are opaque, encode original parameters** — server-validated, stateless, survive restarts; clients must not parse them
+
+**Backward Compatibility:** Fully additive; existing client code continues without changes.
+
+**Related:** `docs/progressive-disclosure-design.md`, `docs/implementation-work-items.md`
+
+### Decision 017: Progressive Disclosure Phase 1 Testability Approval (2026-04-27)
+
+**Author:** McManus  
+**Status:** Active
+
+Testability review and approval gate for Phase 1 progressive disclosure design.
+
+**Phase 1 Verdict:** ✅ **APPROVED**
+
+Section-level handles are deterministic, derived from normalized request parameters (not runtime state), versioned, and server-validated. This preserves D-3 FRK fixture determinism.
+
+**Phase 1 Test Coverage Basis:**
+
+- Parent tool emits consistent section-level handles for canonical request
+- Detail tool accepts those same handles across repeated runs and process restarts
+- No runtime state dependency (caches, timestamps, GUIDs, row identities)
+- D-3 FRK fixture remains deterministic and testable
+
+**Phase 2 Gate:** Do **not** approve Phase 2 row-level handles until each tool has stable row identity and deterministic fixture story.
+
+**Phase 2 Blockers:**
+- `sp_BlitzCache`: Needs `QueryHash` exposure and stability confirmation
+- `sp_BlitzFirst`: Lacks stable FindingID; CheckDate is execution-time data; requires time-series comparison only
+
+**Related:** `docs/progressive-disclosure-design.md` (Appendix A), `docs/progressive-disclosure-handle-audit.md`
+
 ---
 
 ## Governance

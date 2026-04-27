@@ -62,3 +62,13 @@ Backend agent initialized with day-1 project context.
 - Validation target: local `docker build` from repo root using the new Dockerfile.
 - Local Docker validation now passes: `docker build -t blitzbridge-mcpserver:local -f Dockerfile .`.
 - Runtime hardening uses the .NET image-provided non-root identity (`USER $APP_UID`) for broad base-image compatibility.
+
+### Batch 3.1: Progressive Disclosure Response Prototype (2026-04-27)
+
+- Produced `docs/progressive-disclosure-response-shapes.md` as a Phase 1 contract prototype only; no `src/` changes made.
+- Proposed a summary-plus-handles pattern where parent diagnostic tools stay compact and return section-level opaque handles instead of inline verbose result sets.
+- Recommended one generic drill-down tool, `azure_sql_fetch_detail_by_handle`, with required `parentTool`, `kind`, and `handle` inputs so expansion stays explicit without multiplying tool count.
+- Recommended deprecating `IncludeVerboseResults` for `azure_sql_health_check`, `azure_sql_current_incident`, `azure_sql_blitz_cache`, and `azure_sql_blitz_index` rather than repurposing it.
+- Key design files for this work: `docs/progressive-disclosure-response-shapes.md`, `src/BlitzBridge.McpServer/Tools/AzureSqlDiagnosticTools.cs`, `src/BlitzBridge.McpServer/Services/FrkResultMapper.cs`, `src/BlitzBridge.McpServer/Models/ToolResponses/`.
+- **Decision merged** → `fenster-progressive-disclosure.md` consolidated to `decisions.md` as Decision 015 (Active)
+- **Orchestration logged** → Entry recorded in `.squad/orchestration-log/2026-04-27T15-04-23Z-fenster.md`
