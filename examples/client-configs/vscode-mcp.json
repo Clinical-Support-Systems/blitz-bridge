@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Place at .vscode/mcp.json in workspace, or merge into user settings.json under 'mcp'.",
+    "VS Code MCP schema differs from Claude: top-level key is 'servers' (not 'mcpServers') and 'type' is required.",
+    "Prereqs: install Blitz Bridge as a global tool (`dotnet tool install -g BlitzBridge.McpServer`).",
+    "Substitute: update --config path to your real profiles.json path.",
+    "Windows default: %APPDATA%\\blitz-bridge\\profiles.json. Linux/macOS default: ~/.config/blitz-bridge/profiles.json.",
+    "Troubleshooting 'spawn <url> ENOENT': another MCP entry (workspace or user settings) is registering an HTTP url for the same name. Remove it via Command Palette > 'MCP: List Servers', then 'MCP: Restart Server'."
+  ],
+  "servers": {
+    "blitz-bridge": {
+      "type": "stdio",
+      "command": "blitzbridge",
+      "args": [
+        "--transport",
+        "stdio",
+        "--config",
+        "C:\\Users\\<you>\\AppData\\Roaming\\blitz-bridge\\profiles.json"
+      ]
+    }
+  },
+  "inputs": []
+}

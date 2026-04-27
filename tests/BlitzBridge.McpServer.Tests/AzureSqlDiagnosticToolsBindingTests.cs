@@ -2,12 +2,14 @@ using System.Data;
 using System.Diagnostics;
 using System.Text.Json;
 
+using BlitzBridge.McpServer.Configuration;
 using BlitzBridge.McpServer.Models;
 using BlitzBridge.McpServer.Models.ToolRequests;
 using BlitzBridge.McpServer.Models.ToolResponses;
 using BlitzBridge.McpServer.Services;
 using BlitzBridge.McpServer.Tools;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 
 namespace BlitzBridge.McpServer.Tests;
 
@@ -255,7 +257,17 @@ public class AzureSqlDiagnosticToolsBindingTests
     }
 
     private static AzureSqlDiagnosticTools CreateTools(FakeSqlExecutionService sqlService)
-        => new(new FrkProcedureService(sqlService, new FrkResultMapper()));
+        => new(new FrkProcedureService(sqlService, new FrkResultMapper(), CreateTargetOptionsMonitor()));
+
+    private static IOptionsMonitor<SqlTargetOptions> CreateTargetOptionsMonitor()
+        => new StaticOptionsMonitor<SqlTargetOptions>(new SqlTargetOptions());
+
+    private sealed class StaticOptionsMonitor<T>(T value) : IOptionsMonitor<T>
+    {
+        public T CurrentValue { get; } = value;
+        public T Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<T, string?> listener) => null;
+    }
 
     private sealed class FakeSqlExecutionService : ISqlExecutionService
     {

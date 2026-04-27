@@ -219,18 +219,18 @@ public sealed class AzureSqlDiagnosticTools
         AzureSqlTargetCapabilitiesRequest? request = null,
         CancellationToken cancellationToken = default)
     {
-        var effectiveTarget = !string.IsNullOrWhiteSpace(request?.Target)
-            ? request.Target
-            : target ?? string.Empty;
+        var capabilitiesRequest = new AzureSqlTargetCapabilitiesRequest
+        {
+            Target = !string.IsNullOrWhiteSpace(request?.Target)
+                ? request.Target
+                : target ?? string.Empty
+        };
 
         var response = await _frkProcedureService.RunTargetCapabilitiesAsync(
-            new AzureSqlTargetCapabilitiesRequest
-            {
-                Target = effectiveTarget
-            },
+            capabilitiesRequest,
             cancellationToken);
 
-        return ResponseTelemetry.Capture("azure_sql_target_capabilities", effectiveTarget, false, response);
+        return ResponseTelemetry.Capture("azure_sql_target_capabilities", capabilitiesRequest.Target, false, response);
     }
 
     /// <summary>

@@ -1,9 +1,11 @@
 using System.Data;
 using System.Text.RegularExpressions;
 
+using BlitzBridge.McpServer.Configuration;
 using BlitzBridge.McpServer.Models.ToolRequests;
 using BlitzBridge.McpServer.Models.ToolResponses;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 
 namespace BlitzBridge.McpServer.Services;
 
@@ -31,18 +33,54 @@ public sealed partial class FrkProcedureService
 
     private readonly ISqlExecutionService _sqlExecutionService;
     private readonly FrkResultMapper _mapper;
+    private readonly IOptionsMonitor<SqlTargetOptions> _targetOptions;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FrkProcedureService"/> class.
     /// </summary>
     /// <param name="sqlExecutionService">SQL execution abstraction.</param>
     /// <param name="mapper">Result mapper for tool responses.</param>
+    /// <param name="targetOptions">Target profile options snapshot.</param>
     public FrkProcedureService(
         ISqlExecutionService sqlExecutionService,
-        FrkResultMapper mapper)
+        FrkResultMapper mapper,
+        IOptionsMonitor<SqlTargetOptions> targetOptions)
     {
         _sqlExecutionService = sqlExecutionService;
         _mapper = mapper;
+        _targetOptions = targetOptions;
+    }
+
+    /// <summary>
+    /// Resolves a tool-supplied target value. When the input is blank and exactly one
+    /// enabled profile is configured, the sole profile name is returned. Otherwise an
+    /// <see cref="ArgumentException"/> with the available profile list is thrown.
+    /// </summary>
+    /// <param name="target">Caller-supplied target value (may be null/blank).</param>
+    /// <returns>Resolved target profile name.</returns>
+    public string ResolveTarget(string? target)
+    {
+        if (!string.IsNullOrWhiteSpace(target))
+        {
+            return target;
+        }
+
+        var profiles = _targetOptions.CurrentValue.Profiles ?? new();
+        var enabled = profiles
+            .Where(p => p.Value is { Enabled: true })
+            .Select(p => p.Key)
+            .ToArray();
+
+        if (enabled.Length == 1)
+        {
+            return enabled[0];
+        }
+
+        var available = enabled.Length == 0
+            ? "(none configured)"
+            : string.Join(", ", enabled);
+        throw new ArgumentException(
+            $"Target is required. Available profiles: {available}.");
     }
 
     /// <summary>
@@ -55,6 +93,7 @@ public sealed partial class FrkProcedureService
         AzureSqlHealthCheckRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateHealthCheckRequest(request);
         var dataSet = await ExecuteHealthCheckAsync(request, cancellationToken);
         return _mapper.MapHealthCheck(request, dataSet);
@@ -70,6 +109,7 @@ public sealed partial class FrkProcedureService
         AzureSqlBlitzCacheRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateBlitzCacheRequest(request);
         var dataSet = await ExecuteBlitzCacheAsync(request, cancellationToken);
         return _mapper.MapBlitzCache(request, dataSet);
@@ -85,6 +125,7 @@ public sealed partial class FrkProcedureService
         AzureSqlBlitzIndexRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateBlitzIndexRequest(request);
         var dataSet = await ExecuteBlitzIndexAsync(request, cancellationToken);
         return _mapper.MapBlitzIndex(request, dataSet);
@@ -100,6 +141,7 @@ public sealed partial class FrkProcedureService
         AzureSqlCurrentIncidentRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateCurrentIncidentRequest(request);
         var dataSet = await ExecuteCurrentIncidentAsync(request, cancellationToken);
         return _mapper.MapCurrentIncident(request, dataSet);
@@ -115,6 +157,7 @@ public sealed partial class FrkProcedureService
         AzureSqlTargetCapabilitiesRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateTarget(request.Target);
 
         var capabilities = await _sqlExecutionService.GetTargetCapabilitiesAsync(
@@ -134,6 +177,7 @@ public sealed partial class FrkProcedureService
         AzureSqlFetchDetailByHandleRequest request,
         CancellationToken cancellationToken = default)
     {
+        request.Target = ResolveTarget(request.Target);
         ValidateDetailFetchRequest(request);
 
         var handle = ProgressiveDisclosureHandleCodec.Decode(request.Handle);
@@ -187,8 +231,8 @@ public sealed partial class FrkProcedureService
     /// <returns>Configured AI mode.</returns>
     public int GetConfiguredAiMode(string target)
     {
-        ValidateTarget(target);
-        return _sqlExecutionService.GetConfiguredAiMode(target);
+        var resolved = ResolveTarget(target);
+        return _sqlExecutionService.GetConfiguredAiMode(resolved);
     }
 
     private async Task<AzureSqlFetchDetailByHandleResponse> FetchHealthCheckDetailAsync(

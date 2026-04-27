@@ -41,6 +41,7 @@ Client config examples:
 - `examples/client-configs/claude-desktop.json`
 - `examples/client-configs/claude-code.json`
 - `examples/client-configs/cursor.json`
+- `examples/client-configs/vscode-mcp.json` (VS Code: `.vscode/mcp.json` or user `settings.json` under `mcp`)
 
 ### Try it in 5 minutes (Docker Compose)
 
@@ -110,8 +111,13 @@ Start with `examples/client-configs/`:
 - `claude-desktop.json` (stdio)
 - `claude-code.json` (stdio)
 - `cursor.json` (stdio)
+- `vscode-mcp.json` (stdio; VS Code uses `servers` key, not `mcpServers`)
 - `claude-desktop-hosted.json` (HTTP + bearer token)
 - `python-mcp-client.py` (Python MCP SDK sample: list tools + call `azure_sql_target_capabilities`)
+
+### VS Code troubleshooting
+
+If VS Code logs `spawn http://localhost:5000/mcp ENOENT`, a stale HTTP entry is registered for the same server name. Run **MCP: List Servers** from the Command Palette, remove conflicting `blitz-bridge` entries (workspace `.vscode/mcp.json` and user `settings.json` → `mcp.servers`), then **MCP: Restart Server**.
 
 ## Tool surface
 
