@@ -5,6 +5,41 @@ namespace BlitzBridge.McpServer.Tests;
 
 public class StdioTransportSmokeTests
 {
+    private static string ResolveServerDirectory()
+    {
+        var testBinDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        var inferredConfiguration = testBinDirectory.Parent?.Parent?.Name;
+        var repoRoot = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", ".."));
+
+        var candidateConfigurations = new[]
+        {
+            inferredConfiguration,
+            "Debug",
+            "Release"
+        }
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var configuration in candidateConfigurations)
+        {
+            var candidateDirectory = Path.Combine(
+                repoRoot,
+                "src", "BlitzBridge.McpServer", "bin", configuration!, "net10.0");
+            var candidatePath = OperatingSystem.IsWindows()
+                ? Path.Combine(candidateDirectory, "BlitzBridge.McpServer.exe")
+                : Path.Combine(candidateDirectory, "BlitzBridge.McpServer.dll");
+
+            if (File.Exists(candidatePath))
+            {
+                return candidateDirectory;
+            }
+        }
+
+        throw new InvalidOperationException("Unable to locate BlitzBridge.McpServer build output for stdio smoke tests.");
+    }
+
     private static ProcessStartInfo CreateStdioProcessStartInfo(string serverDirectory, string configPath)
     {
         if (OperatingSystem.IsWindows())
@@ -38,10 +73,7 @@ public class StdioTransportSmokeTests
     [Test]
     public async Task StdioTransport_CanParseInitializeRequest_FromStdin()
     {
-        var serverDirectory = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..", "..",
-            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0"));
+        var serverDirectory = ResolveServerDirectory();
         var serverPath = OperatingSystem.IsWindows()
             ? Path.Combine(serverDirectory, "BlitzBridge.McpServer.exe")
             : Path.Combine(serverDirectory, "BlitzBridge.McpServer.dll");
@@ -122,10 +154,7 @@ public class StdioTransportSmokeTests
     [Test]
     public async Task StdioTransport_BypassesHttpAuthMiddleware_AndStillInitializes()
     {
-        var serverDirectory = Path.GetFullPath(Path.Combine(
-            AppContext.BaseDirectory,
-            "..", "..", "..", "..", "..",
-            "src", "BlitzBridge.McpServer", "bin", "Debug", "net10.0"));
+        var serverDirectory = ResolveServerDirectory();
         var serverPath = OperatingSystem.IsWindows()
             ? Path.Combine(serverDirectory, "BlitzBridge.McpServer.exe")
             : Path.Combine(serverDirectory, "BlitzBridge.McpServer.dll");
